@@ -2,12 +2,14 @@
 
 #include <atomic>
 #include <cstdio>
+#include <mutex>
 #include <thread>
 #include <vector>
 
 #include "defines.h"
 #include "tcp_socket.h"
 
+// Client data sent by teamspeak API
 struct ClientData
 {
 	anyID id;
@@ -15,6 +17,7 @@ struct ClientData
 	unsigned int* channelFillMask;
 };
 
+// Sound data sent by Teamspeak API
 struct SoundData
 {
 	const short* samples;
@@ -22,6 +25,17 @@ struct SoundData
 	int channels;
 };
 
+// Header of data sent by the plugin to server
+struct OutgoingSoundDataHeader
+{
+	uint16_t clientId; // The teamspeak client id
+	uint8_t padding[2]; // Not used
+
+	uint16_t channelsCount; // Number of channels in the incoming data
+	uint16_t samplesFrequency; // Hz sample rate (always 48000 Hz)
+	uint32_t samplesCount; // Number of samples in the incoming data
+	uint32_t samplesSize; // Size of the incoming data
+};
 
 struct Plugin
 {
@@ -61,6 +75,7 @@ private:
 
 	TcpSocket m_server;
 	std::vector<TcpSocket> m_clients;
+	std::mutex m_clientsMutex;
 
 	TS3Functions m_functions;
 };

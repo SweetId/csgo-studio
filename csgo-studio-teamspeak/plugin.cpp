@@ -59,6 +59,8 @@ void Plugin::RunServer()
 		if (m_server.Accept(client, 1000))
 		{
 			Log(LogLevel_INFO, "New client from %s:%d\n", client.GetAddress().c_str(), client.GetPort());
+
+			std::unique_lock<std::mutex> lk(m_clientsMutex);
 			m_clients.push_back(std::move(client));
 		}
 	}
@@ -84,4 +86,18 @@ void Plugin::WriteToRaw(const ClientData& client, const SoundData& sound)
 void Plugin::ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound)
 {
 	WriteToRaw(client, sound);
+
+	OutgoingSoundDataHeader data;
+	data.clientId = client.id;
+	data.channelsCount = sound.channels;
+	data.samplesCount = sound.samplesCount;
+	data.samplesFrequency = 48000;
+	data.samplesSize = sound.channels * sound.samplesCount * sizeof(short);
+
+	std::unique_lock<std::mutex> lk(m_clientsMutex);
+	for (TcpSocket& socket : m_clients)
+	{
+		socket.Send(&data, sizeof(OutgoingSoundDataHeader));
+		socket.Send(sound.samples, data.samplesSize);
+	}
 }

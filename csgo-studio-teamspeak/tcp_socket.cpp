@@ -93,12 +93,12 @@ int64_t TcpSocket::Recv(void* buffer, int32_t size)
 	return recv(m_socket, static_cast<char*>(buffer), size, 0);
 }
 
-int64_t TcpSocket::Send(void* buffer, int32_t size)
+int64_t TcpSocket::Send(const void* buffer, int32_t size)
 {
 	if (m_socket == INVALID_SOCKET)
 		return 0;
 	
-	return send(m_socket, static_cast<char*>(buffer), size, 0);
+	return send(m_socket, static_cast<const char*>(buffer), size, 0);
 }
 
 bool TcpSocket::Accept(TcpSocket& socket, int32_t msec)

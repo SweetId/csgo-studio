@@ -23,7 +23,7 @@ public:
 	const std::string& GetAddress() const;
 
 	int64_t Recv(void* buffer, int32_t size);
-	int64_t Send(void* buffer, int32_t size);
+	int64_t Send(const void* buffer, int32_t size);
 
 	bool Accept(TcpSocket& socket, int32_t timeout);
 
