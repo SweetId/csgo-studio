@@ -1,7 +1,9 @@
 #pragma once
 
+#include <atomic>
 #include <cstdio>
 #include <thread>
+#include <vector>
 
 #include "defines.h"
 #include "tcp_socket.h"
@@ -23,6 +25,8 @@ struct SoundData
 
 struct Plugin
 {
+	Plugin();
+
 	static Plugin& Instance();
 
 	int Init();
@@ -50,7 +54,13 @@ private:
 	void LogInternal(LogLevel level, const char* str);
 	void WriteToRaw(const ClientData& client, const SoundData& sound);
 
+	void RunServer();
+
+	std::atomic_bool m_bRunning;
+	std::thread m_processThread;
+
 	TcpSocket m_server;
+	std::vector<TcpSocket> m_clients;
 
 	TS3Functions m_functions;
 };

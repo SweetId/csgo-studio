@@ -1,5 +1,6 @@
 #include "plugin.h"
 
+#include <chrono>
 #include <fstream>
 
 Plugin& Plugin::Instance()
@@ -7,6 +8,10 @@ Plugin& Plugin::Instance()
 	static Plugin plugin;
 	return plugin;
 }
+
+Plugin::Plugin()
+	: m_bRunning({ false })
+{ }
 
 int Plugin::Init()
 {
@@ -24,12 +29,16 @@ int Plugin::Init()
 		return Error_Failure;
 	}
 
+	m_processThread = std::thread([this]() { RunServer(); });
+
 	Log(LogLevel_INFO, "CSGO-Studio bound on port %d", m_server.GetPort());
 	return Error_Success;
 }
 
 void Plugin::Shutdown()
 {
+	m_bRunning = false;
+	m_processThread.join();
 	WSACleanup();
 }
 
@@ -38,6 +47,21 @@ void Plugin::LogInternal(LogLevel level, const char* str)
 	m_functions.logMessage(str, level, "CSGO-Studio", 0);
 	printf(str);
 	OutputDebugStringA(str);
+}
+
+void Plugin::RunServer()
+{
+	m_bRunning = true;
+
+	while (m_bRunning)
+	{
+		TcpSocket client;
+		if (m_server.Accept(client, 1000))
+		{
+			Log(LogLevel_INFO, "New client from %s:%d\n", client.GetAddress().c_str(), client.GetPort());
+			m_clients.push_back(std::move(client));
+		}
+	}
 }
 
 void Plugin::WriteToRaw(const ClientData& client, const SoundData& sound)
