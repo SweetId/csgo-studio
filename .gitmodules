@@ -1,0 +1,3 @@
+[submodule "build/modules/qt"]
+	path = build/modules/qt
+	url = https://github.com/dcourtois/premake-qt
