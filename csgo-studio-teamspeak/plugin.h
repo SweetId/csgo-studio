@@ -6,6 +6,21 @@
 #include "defines.h"
 #include "tcp_socket.h"
 
+struct ClientData
+{
+	anyID id;
+	const unsigned int* channelSpeakerArray;
+	unsigned int* channelFillMask;
+};
+
+struct SoundData
+{
+	const short* samples;
+	int samplesCount;
+	int channels;
+};
+
+
 struct Plugin
 {
 	static Plugin& Instance();
@@ -14,6 +29,8 @@ struct Plugin
 	void Shutdown();
 
 	void SetCallbacks(const TS3Functions& functions) { m_functions = functions; }
+
+	void ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound);
 
 	template<typename... TArgs>
 	void Log(LogLevel level, const char* format, TArgs... args)
@@ -31,10 +48,9 @@ struct Plugin
 
 private:
 	void LogInternal(LogLevel level, const char* str);
+	void WriteToRaw(const ClientData& client, const SoundData& sound);
 
 	TcpSocket m_server;
 
 	TS3Functions m_functions;
-
-	std::thread m_processThread;
 };

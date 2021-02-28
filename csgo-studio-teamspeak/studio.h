@@ -30,7 +30,6 @@ extern "C" {
 	* @param channelFillMask a bit mask of SPEAKER_* that defines which of the channels in the buffer have audio data. Be sure to set the corresponding flag when adding audio to previously empty channels in the buffer.
    */
 	CSGOSTUDIO_API void ts3plugin_onEditPostProcessVoiceDataEvent(uint64 serverConnectionHandlerID, anyID clientID, short* samples, int sampleCount, int channels, const unsigned int* channelSpeakerArray, unsigned int* channelFillMask);
-
 #ifdef __cplusplus
 }
 #endif

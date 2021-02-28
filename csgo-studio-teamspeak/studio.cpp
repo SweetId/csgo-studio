@@ -18,6 +18,11 @@ void _shutdown()
 	Plugin::Instance().Shutdown();
 }
 
+void _processVoiceData(uint64 serverConnectionHandlerID, anyID clientID, short* samples, int sampleCount, int channels, const unsigned int* channelSpeakerArray, unsigned int* channelFillMask)
+{
+	Plugin::Instance().ProcessVoiceData(serverConnectionHandlerID, { clientID, channelSpeakerArray, channelFillMask }, { samples, sampleCount, channels });
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -68,7 +73,7 @@ extern "C" {
 
 	void ts3plugin_onEditPostProcessVoiceDataEvent(uint64 serverConnectionHandlerID, anyID clientID, short* samples, int sampleCount, int channels, const unsigned int* channelSpeakerArray, unsigned int* channelFillMask)
 	{
-
+		_processVoiceData(serverConnectionHandlerID, clientID, samples, sampleCount, channels, channelSpeakerArray, channelFillMask);
 	}
 
 #ifdef __cplusplus
