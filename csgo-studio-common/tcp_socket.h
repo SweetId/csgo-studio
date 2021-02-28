@@ -3,9 +3,9 @@
 #include <string>
 #include <WinSock2.h>
 
-#include "defines.h"
+#include "common.h"
 
-class TcpSocket
+class CSGOSTUDIO_API TcpSocket
 {
 public:
 	TcpSocket();
@@ -20,7 +20,7 @@ public:
 
 	bool Listen(uint16_t port);
 	uint16_t GetPort() const;
-	const std::string& GetAddress() const;
+	const char* GetAddress() const;
 
 	int64_t Recv(void* buffer, int32_t size);
 	int64_t Send(const void* buffer, int32_t size);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include"common.h"
 #include "defines.h"
 
 #ifdef __cplusplus

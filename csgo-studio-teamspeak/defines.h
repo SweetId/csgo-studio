@@ -5,8 +5,6 @@
 #include "teamspeak/plugin_definitions.h"
 #include "teamspeak/ts3_functions.h"
 
-#define CSGOSTUDIO_API __declspec(dllexport)
-
 static const int32_t Plugin_Api_Version = 23;
 
 static const int32_t Error_Success = 0;

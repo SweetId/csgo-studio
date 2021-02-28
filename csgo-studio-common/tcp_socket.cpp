@@ -2,8 +2,6 @@
 
 #include <WS2tcpip.h>
 
-#include "plugin.h"
-
 TcpSocket::TcpSocket()
 {
 	Reset();
@@ -43,7 +41,6 @@ bool TcpSocket::Listen(uint16_t port)
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket == INVALID_SOCKET)
 	{
-		Plugin::Instance().Log(LogLevel_ERROR, "TcpSocket: socket creation failed");
 		return false;
 	}
 
@@ -55,7 +52,6 @@ bool TcpSocket::Listen(uint16_t port)
 	int ret = bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 	if (ret == SOCKET_ERROR)
 	{
-		Plugin::Instance().Log(LogLevel_ERROR, "TcpSocket: socket bind failed");
 		closesocket(m_socket);
 		m_socket = INVALID_SOCKET;
 		return false;
@@ -64,7 +60,6 @@ bool TcpSocket::Listen(uint16_t port)
 	ret = listen(m_socket, 5);
 	if (ret == SOCKET_ERROR)
 	{
-		Plugin::Instance().Log(LogLevel_ERROR, "TcpSocket: socket listen failed");
 		closesocket(m_socket);
 		m_socket = INVALID_SOCKET;
 		return false;
@@ -80,9 +75,9 @@ uint16_t TcpSocket::GetPort() const
 	return m_port;
 }
 
-const std::string& TcpSocket::GetAddress() const
+const char* TcpSocket::GetAddress() const
 {
-	return m_address;
+	return m_address.c_str();
 }
 
 int64_t TcpSocket::Recv(void* buffer, int32_t size)

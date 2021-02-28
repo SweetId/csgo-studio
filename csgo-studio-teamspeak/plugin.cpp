@@ -58,7 +58,7 @@ void Plugin::RunServer()
 		TcpSocket client;
 		if (m_server.Accept(client, 1000))
 		{
-			Log(LogLevel_INFO, "New client from %s:%d\n", client.GetAddress().c_str(), client.GetPort());
+			Log(LogLevel_INFO, "New client from %s:%d\n", client.GetAddress(), client.GetPort());
 
 			std::unique_lock<std::mutex> lk(m_clientsMutex);
 			m_clients.push_back(std::move(client));

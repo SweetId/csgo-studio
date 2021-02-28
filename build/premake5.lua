@@ -3,21 +3,6 @@ workspace "csgo-studio"
 	platforms { "x64" }
 	location (_ACTION)
 
-project "csgo-studio-teamspeak"
-	kind "SharedLib"
-	language "C++"
-	targetdir "../Binaries"
-	targetname "csgo-studio-teamspeak"
-
-	files {
-		"../csgo-studio-teamspeak/**.h",
-		"../csgo-studio-teamspeak/**.cpp"
-	}
-
-	links {
-		"ws2_32"
-	}
-
 	filter "configurations:Debug"
 		defines { "DEBUG" }
 		targetsuffix ("-d")
@@ -26,3 +11,38 @@ project "csgo-studio-teamspeak"
 	filter "configurations:Release"
 		defines { "NDEBUG" }
 		optimize "On"
+
+project "csgo-studio-common"
+	kind "StaticLib"
+	language "C++"
+	targetdir "../Binaries"
+	targetname "csgo-studio-common"
+
+	files {
+		"../csgo-studio-common/**.h",
+		"../csgo-studio-common/**.cpp"
+	}
+
+	links {
+		"ws2_32"
+	}
+
+
+project "csgo-studio-teamspeak"
+	kind "SharedLib"
+	language "C++"
+	targetdir "../Binaries"
+	targetname "csgo-studio-teamspeak"
+
+	includedirs {
+		"../csgo-studio-common/"
+	}
+
+	files {
+		"../csgo-studio-teamspeak/**.h",
+		"../csgo-studio-teamspeak/**.cpp"
+	}
+
+	links {
+		"csgo-studio-common"
+	}
