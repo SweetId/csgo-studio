@@ -66,7 +66,7 @@ struct Plugin
 
 private:
 	void LogInternal(LogLevel level, const char* str);
-	void WriteToRaw(const ClientData& client, const SoundData& sound);
+	void WriteToFile(const ClientData& client, const SoundData& sound);
 
 	void RunServer();
 

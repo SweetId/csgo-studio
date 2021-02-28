@@ -66,7 +66,7 @@ void Plugin::RunServer()
 	}
 }
 
-void Plugin::WriteToRaw(const ClientData& client, const SoundData& sound)
+void Plugin::WriteToFile(const ClientData& client, const SoundData& sound)
 {
 	Log(LogLevel_INFO, "%d emited %d samples (%d channels)\n", client.id, sound.samplesCount, sound.channels);
 	char name[64];
@@ -85,7 +85,9 @@ void Plugin::WriteToRaw(const ClientData& client, const SoundData& sound)
 
 void Plugin::ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound)
 {
-	WriteToRaw(client, sound);
+#if _DEBUG
+	WriteToFile(client, sound);
+#endif
 
 	OutgoingSoundDataHeader data;
 	data.clientId = client.id;
