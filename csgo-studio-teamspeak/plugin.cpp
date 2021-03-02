@@ -2,6 +2,9 @@
 
 #include <chrono>
 #include <fstream>
+#include <WinSock2.h>
+
+#include "tcp_data.h"
 
 Plugin& Plugin::Instance()
 {
@@ -66,16 +69,15 @@ void Plugin::RunServer()
 	}
 }
 
-void Plugin::WriteToFile(const ClientData& client, const SoundData& sound)
+void Plugin::WriteToFile(const ClientData& client, const std::vector<short>& buffer)
 {
-	Log(LogLevel_INFO, "%d emited %d samples (%d channels)\n", client.id, sound.samplesCount, sound.channels);
 	char name[64];
 	sprintf_s(name, "F:/wave_%d.wav", client.id);
 
 	std::fstream file(name, std::ios::binary | std::ios::app);
 	if (file && file.is_open())
 	{
-		file.write((char*)sound.samples, sizeof(short) * sound.samplesCount * sound.channels);
+		file.write((char*)buffer.data(), buffer.size());
 	}
 	else
 	{
@@ -83,23 +85,55 @@ void Plugin::WriteToFile(const ClientData& client, const SoundData& sound)
 	}
 }
 
+void ConvertToStereo(const SoundData& sound, std::vector<short>& buffer)
+{
+	buffer.resize(sound.samplesCount * sizeof(float));
+	
+	// if mono, duplicate soundwave
+	if (sound.channels == 1)
+	{
+		for (uint64_t i = 0; i < sound.samplesCount; ++i)
+		{
+			buffer[i * 2] = sound.samples[i];
+			buffer[i * 2 + 1] = sound.samples[i];
+		}
+	}
+	// if stereo just copy the full buffer
+	else if (sound.channels == 2)
+	{
+		std::memcpy(buffer.data(), sound.samples, sizeof(short) * sound.samplesCount * 2);
+	}
+	else
+	{
+		for (uint64_t i = 0; i < sound.samplesCount; ++i)
+		{
+			buffer[i * 2] = sound.samples[i * sound.channels];
+			buffer[i * 2 + 1] = sound.samples[i * sound.channels + 1];
+		}
+	}
+}
+
 void Plugin::ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound)
 {
+	std::vector<short> buffer;
+	ConvertToStereo(sound, buffer);
+
 #if _DEBUG
-	WriteToFile(client, sound);
+	Log(LogLevel_INFO, "%d emited %d samples (%d channels)\n", client.id, sound.samplesCount, sound.channels);
+	WriteToFile(client, buffer);
 #endif
 
 	OutgoingSoundDataHeader data;
 	data.clientId = client.id;
-	data.channelsCount = sound.channels;
+	data.channelsCount = 2;
+	data.samplesRate = 48000;
 	data.samplesCount = sound.samplesCount;
-	data.samplesFrequency = 48000;
-	data.samplesSize = sound.channels * sound.samplesCount * sizeof(short);
+	data.samplesSize = data.channelsCount * data.samplesCount * sizeof(short);
 
 	std::unique_lock<std::mutex> lk(m_clientsMutex);
 	for (TcpSocket& socket : m_clients)
 	{
 		socket.Send(&data, sizeof(OutgoingSoundDataHeader));
-		socket.Send(sound.samples, data.samplesSize);
+		socket.Send(buffer.data(), (int32_t)buffer.size());
 	}
 }
