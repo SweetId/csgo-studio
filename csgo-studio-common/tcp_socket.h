@@ -23,8 +23,14 @@ public:
 	uint16_t GetPort() const;
 	const char* GetAddress() const;
 
-	int64_t Recv(void* buffer, int32_t size);
-	int64_t Send(const void* buffer, int32_t size);
+	int64_t Recv(void* buffer, int64_t size);
+	int64_t Send(const void* buffer, int64_t size);
+
+	template<typename T>
+	int64_t Recv(T& data) {	return Recv(&data, sizeof(T)); }
+
+	template<typename T>
+	int64_t Send(const T& data) { return Send(&data, sizeof(T)); }
 
 	bool Accept(TcpSocket& socket, int32_t timeout);
 

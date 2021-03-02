@@ -13,8 +13,6 @@ AudioProcessor::AudioProcessor()
 AudioProcessor::~AudioProcessor()
 {
 	m_bRunning = false;
-	if (m_networkThread.joinable())
-		m_networkThread.join();
 	if (m_processThread.joinable())
 		m_processThread.join();
 }
@@ -26,38 +24,22 @@ void AudioProcessor::SetDelay(int32_t delay)
 
 bool AudioProcessor::Start(QIODevice* audioDevice)
 {
-	bool bConnected = m_client.Connect("127.0.0.1", 37015);
+	bool bConnected = m_client.StartClient("127.0.0.1", 37015);
 	if (bConnected)
 	{
-		m_bRunning = true;
-		m_networkThread = std::thread([this]() { RunClient(); });
+		m_client.OnSamplesReceived += [this](uint32_t clientId, uint32_t size, uint8_t* samples) {
+			std::unique_lock<std::mutex> lk(m_samplesMutex);
+			m_timedSamples.push_back({ QDateTime::currentMSecsSinceEpoch(), size, std::move(std::unique_ptr<uint8_t[]>(samples)) });
+		};
+
 		m_processThread = std::thread([this, audioDevice]() { RunAudio(audioDevice); });
 	}
 	return bConnected;
 }
 
-void AudioProcessor::RunClient()
-{
-	while (m_bRunning)
-	{
-		OutgoingSoundDataHeader header;
-		int64_t ret = m_client.Recv(&header, sizeof(OutgoingSoundDataHeader));
-
-		if (ret > 0)
-		{
-			std::unique_ptr<uint8_t[]> data = std::make_unique<uint8_t[]>(header.samplesSize);
-			ret = m_client.Recv(data.get(), header.samplesSize);
-			if (ret > 0)
-			{
-				m_timedSamples.push_back({ QDateTime::currentMSecsSinceEpoch(), header.samplesSize, std::move(data) });
-			}
-		}
-
-	}
-}
-
 void AudioProcessor::RunAudio(QIODevice* audioDevice)
 {
+	m_bRunning = true;
 	while (m_bRunning)
 	{
 		if (m_timedSamples.empty())
@@ -67,7 +49,11 @@ void AudioProcessor::RunAudio(QIODevice* audioDevice)
 		}
 
 		qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-		auto nextSample = m_timedSamples.begin();
+		std::list<Samples>::iterator nextSample;
+		{
+			std::unique_lock<std::mutex> lk(m_samplesMutex);
+			nextSample = m_timedSamples.begin();
+		}
 
 		qint64 nextTimestamp = (nextSample->timestamp + m_delay);
 		if (nextTimestamp > currentTime)
@@ -77,6 +63,9 @@ void AudioProcessor::RunAudio(QIODevice* audioDevice)
 		}
 
 		audioDevice->write((char*)nextSample->data.get(), nextSample->size);
-		m_timedSamples.pop_front();
+		{
+			std::unique_lock<std::mutex> lk(m_samplesMutex);
+			m_timedSamples.pop_front();
+		}
 	}
 }

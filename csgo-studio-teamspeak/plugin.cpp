@@ -13,7 +13,6 @@ Plugin& Plugin::Instance()
 }
 
 Plugin::Plugin()
-	: m_bRunning({ false })
 { }
 
 int Plugin::Init()
@@ -26,22 +25,20 @@ int Plugin::Init()
 		return Error_Failure;
 	}
 
-	if (!m_server.Listen(CsgoStudio_ListenPort))
-	{
-		Log(LogLevel_ERROR, "CSGO-Studio could not bind on desired port range");
+	m_server.OnError += [this](const char* str) { Log(LogLevel_ERROR, str); };
+	m_server.OnWarning += [this](const char* str) { Log(LogLevel_WARNING, str); };
+	m_server.OnInfo += [this](const char* str) { Log(LogLevel_INFO, str); };
+	m_server.OnClientConnected += [this](const char* address, uint16_t port) { Log(LogLevel_INFO, "Client connected from %s:%d", address, port); };
+
+	if (!m_server.StartServer(CsgoStudio_ListenPort))
 		return Error_Failure;
-	}
 
-	m_processThread = std::thread([this]() { RunServer(); });
-
-	Log(LogLevel_INFO, "CSGO-Studio bound on port %d", m_server.GetPort());
 	return Error_Success;
 }
 
 void Plugin::Shutdown()
 {
-	m_bRunning = false;
-	m_processThread.join();
+	m_server.Shutdown();
 	WSACleanup();
 }
 
@@ -52,24 +49,7 @@ void Plugin::LogInternal(LogLevel level, const char* str)
 	OutputDebugStringA(str);
 }
 
-void Plugin::RunServer()
-{
-	m_bRunning = true;
-
-	while (m_bRunning)
-	{
-		TcpSocket client;
-		if (m_server.Accept(client, 1000))
-		{
-			Log(LogLevel_INFO, "New client from %s:%d\n", client.GetAddress(), client.GetPort());
-
-			std::unique_lock<std::mutex> lk(m_clientsMutex);
-			m_clients.push_back(std::move(client));
-		}
-	}
-}
-
-void Plugin::WriteToFile(const ClientData& client, const std::vector<short>& buffer)
+void Plugin::WriteToFile(const ClientData& client, const std::unique_ptr<short[]>& buffer, uint32_t size)
 {
 	char name[64];
 	sprintf_s(name, "F:/wave_%d.wav", client.id);
@@ -77,7 +57,7 @@ void Plugin::WriteToFile(const ClientData& client, const std::vector<short>& buf
 	std::fstream file(name, std::ios::binary | std::ios::app);
 	if (file && file.is_open())
 	{
-		file.write((char*)buffer.data(), buffer.size());
+		file.write((char*)buffer.get(), size * sizeof(short));
 	}
 	else
 	{
@@ -85,10 +65,11 @@ void Plugin::WriteToFile(const ClientData& client, const std::vector<short>& buf
 	}
 }
 
-void ConvertToStereo(const SoundData& sound, std::vector<short>& buffer)
+uint32_t ConvertToStereo(const SoundData& sound, std::unique_ptr<short[]>& buffer)
 {
-	buffer.resize(sound.samplesCount * sizeof(float));
-	
+	uint32_t size = sound.samplesCount * 2;
+	buffer = std::make_unique<short[]>(size);
+
 	// if mono, duplicate soundwave
 	if (sound.channels == 1)
 	{
@@ -101,7 +82,7 @@ void ConvertToStereo(const SoundData& sound, std::vector<short>& buffer)
 	// if stereo just copy the full buffer
 	else if (sound.channels == 2)
 	{
-		std::memcpy(buffer.data(), sound.samples, sizeof(short) * sound.samplesCount * 2);
+		std::memcpy(buffer.get(), sound.samples, size);
 	}
 	else
 	{
@@ -111,16 +92,18 @@ void ConvertToStereo(const SoundData& sound, std::vector<short>& buffer)
 			buffer[i * 2 + 1] = sound.samples[i * sound.channels + 1];
 		}
 	}
+
+	return size;
 }
 
 void Plugin::ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound)
 {
-	std::vector<short> buffer;
-	ConvertToStereo(sound, buffer);
+	std::unique_ptr<short[]> buffer;
+	uint32_t size = ConvertToStereo(sound, buffer);
 
 #if _DEBUG
-	Log(LogLevel_INFO, "%d emited %d samples (%d channels)\n", client.id, sound.samplesCount, sound.channels);
-	WriteToFile(client, buffer);
+	Log(LogLevel_INFO, "%d emited %d samples (%d channels) - data size: %d\n", client.id, sound.samplesCount, sound.channels, size);
+	WriteToFile(client, buffer, size);
 #endif
 
 	OutgoingSoundDataHeader data;
@@ -128,12 +111,7 @@ void Plugin::ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientDa
 	data.channelsCount = 2;
 	data.samplesRate = 48000;
 	data.samplesCount = sound.samplesCount;
-	data.samplesSize = data.channelsCount * data.samplesCount * sizeof(short);
+	data.samplesSize = sizeof(short) * size;
 
-	std::unique_lock<std::mutex> lk(m_clientsMutex);
-	for (TcpSocket& socket : m_clients)
-	{
-		socket.Send(&data, sizeof(OutgoingSoundDataHeader));
-		socket.Send(buffer.data(), (int32_t)buffer.size());
-	}
+	m_server.Broadcast(data, (uint8_t*)buffer.get(), data.samplesSize);
 }

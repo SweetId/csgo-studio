@@ -5,6 +5,8 @@
 // Header of data sent by the plugin to server
 struct OutgoingSoundDataHeader
 {
+	const static uint32_t Type = 3;
+
 	uint16_t clientId; // The teamspeak client id
 	uint8_t padding[2]; // Not used
 

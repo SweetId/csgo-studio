@@ -3,9 +3,11 @@
 #include <QTimer>
 #include <atomic>
 #include <list>
+#include <memory>
+#include <mutex>
 #include <thread>
 
-#include "tcp_socket.h"
+#include "network_client.h"
 
 class AudioProcessor
 {
@@ -21,9 +23,9 @@ protected:
     void RunClient();
     void RunAudio(class QIODevice* audioDevice);
 
-    TcpSocket m_client;
+    NetworkClient m_client;
+
     std::atomic_bool m_bRunning;
-    std::thread m_networkThread;
     std::thread m_processThread;
 
     int32_t m_delay;
@@ -33,5 +35,6 @@ protected:
         uint32_t size;
         std::unique_ptr<uint8_t[]> data;
     };
+    std::mutex m_samplesMutex;
     std::list<Samples> m_timedSamples;
 };

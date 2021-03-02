@@ -109,7 +109,7 @@ const char* TcpSocket::GetAddress() const
 	return m_address.c_str();
 }
 
-int64_t TcpSocket::Recv(void* buffer, int32_t size)
+int64_t TcpSocket::Recv(void* buffer, int64_t size)
 {
 	if (m_socket == INVALID_SOCKET)
 		return 0;
@@ -117,7 +117,7 @@ int64_t TcpSocket::Recv(void* buffer, int32_t size)
 	return recv(m_socket, static_cast<char*>(buffer), size, 0);
 }
 
-int64_t TcpSocket::Send(const void* buffer, int32_t size)
+int64_t TcpSocket::Send(const void* buffer, int64_t size)
 {
 	if (m_socket == INVALID_SOCKET)
 		return 0;

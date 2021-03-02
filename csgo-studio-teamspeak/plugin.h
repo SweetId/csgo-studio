@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "defines.h"
-#include "tcp_socket.h"
+#include "network_client.h"
 
 // Client data sent by teamspeak API
 struct ClientData
@@ -54,16 +54,9 @@ struct Plugin
 
 private:
 	void LogInternal(LogLevel level, const char* str);
-	void WriteToFile(const ClientData& client, const std::vector<short>& buffer);
+	void WriteToFile(const ClientData& client, const std::unique_ptr<short[]>& buffer, uint32_t size);
 
-	void RunServer();
-
-	std::atomic_bool m_bRunning;
-	std::thread m_processThread;
-
-	TcpSocket m_server;
-	std::vector<TcpSocket> m_clients;
-	std::mutex m_clientsMutex;
+	NetworkClient m_server;
 
 	TS3Functions m_functions;
 };
