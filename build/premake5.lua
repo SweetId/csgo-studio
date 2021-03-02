@@ -70,8 +70,8 @@ project "csgo-studio-gui"
 
 	qt.enable()
 	qtpath(qt_path)
-	qtmodules { "core", "gui", "widgets" }
-	qtprefix "QT6"
+	qtmodules { "core", "gui", "widgets", "multimedia" }
+	qtprefix "QT5"
 
 	configuration { "Debug" }
 		qtsuffix "d"
