@@ -1,5 +1,6 @@
 #include "tcp_socket.h"
 
+#include <WinSock2.h>
 #include <WS2tcpip.h>
 
 TcpSocket::TcpSocket()
@@ -47,7 +48,7 @@ bool TcpSocket::Listen(uint16_t port)
 	struct sockaddr_in addr = { 0 };
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	addr.sin_port = port;
+	addr.sin_port = htons(port);
 
 	int ret = bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 	if (ret == SOCKET_ERROR)
@@ -66,6 +67,34 @@ bool TcpSocket::Listen(uint16_t port)
 	}
 
 	m_address = "0.0.0.0";
+	m_port = port;
+	return true;
+}
+
+bool TcpSocket::Connect(const char* address, uint16_t port)
+{
+	m_socket = socket(AF_INET, SOCK_STREAM, 0);
+	if (m_socket == INVALID_SOCKET)
+	{
+		return false;
+	}
+
+	struct sockaddr_in addr = { 0 };
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
+	if (inet_pton(AF_INET, address, &addr.sin_addr) != 1)
+	{
+		return false;
+	}
+
+	int ret = connect(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+	if (ret == -1)
+	{
+		int err = WSAGetLastError();
+		return false;
+	}
+
+	m_address = address;
 	m_port = port;
 	return true;
 }

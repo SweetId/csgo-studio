@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <WinSock2.h>
 
 #include "common.h"
 
@@ -19,6 +18,8 @@ public:
 	TcpSocket& operator=(const TcpSocket&) = delete;
 
 	bool Listen(uint16_t port);
+	bool Connect(const char* address, uint16_t port);
+
 	uint16_t GetPort() const;
 	const char* GetAddress() const;
 
@@ -30,7 +31,7 @@ public:
 private:
 	void Reset();
 
-	SOCKET m_socket;
+	uint64_t m_socket;
 	uint16_t m_port;
 	std::string m_address;
 };
