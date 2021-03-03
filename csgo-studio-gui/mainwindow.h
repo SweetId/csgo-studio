@@ -10,6 +10,12 @@ public:
     MainWindow();
     virtual ~MainWindow();
 
+signals:
+    void OnClientJoinedChannel(quint16 clientId, quint8 channelId);
+
+public slots:
+    void OnClientConnected(quint16 clientId, QString name);
+
 private:
     class QAudioOutput* m_output;
     class QIODevice* m_audioDevice;

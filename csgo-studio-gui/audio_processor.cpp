@@ -27,10 +27,20 @@ bool AudioProcessor::Start(QIODevice* audioDevice)
 	bool bConnected = m_client.StartClient("127.0.0.1", 37015);
 	if (bConnected)
 	{
-		m_client.OnSamplesReceived += [this](uint32_t clientId, uint32_t size, uint8_t* samples) {
+		m_client.OnSamplesReceived += [this](uint16_t clientId, uint32_t size, uint8_t* samples) {
 			std::unique_lock<std::mutex> lk(m_samplesMutex);
-			m_timedSamples.push_back({ QDateTime::currentMSecsSinceEpoch(), size, std::move(std::unique_ptr<uint8_t[]>(samples)) });
+			m_timedSamples.push_back({ clientId, QDateTime::currentMSecsSinceEpoch(), size, std::move(std::unique_ptr<uint8_t[]>(samples)) });
 		};
+
+		m_client.OnClientInfosReceived += [this](uint16_t clientId, const char* name) {
+			emit OnClientInfoReceived(clientId, name);
+		};
+
+		m_client.OnInfo += [this](const char* str) { emit OnInfo(str); };
+		m_client.OnWarning += [this](const char* str) { emit OnWarning(str); };
+		m_client.OnError += [this](const char* str) { emit OnError(str); };
+
+		m_client.AddRequest(new TRequest<ListAllClientRequestHeader>());
 
 		m_processThread = std::thread([this, audioDevice]() { RunAudio(audioDevice); });
 	}
@@ -62,6 +72,7 @@ void AudioProcessor::RunAudio(QIODevice* audioDevice)
 			continue;
 		}
 
+		emit OnClientTalking(nextSample->clientId);
 		audioDevice->write((char*)nextSample->data.get(), nextSample->size);
 		{
 			std::unique_lock<std::mutex> lk(m_samplesMutex);
