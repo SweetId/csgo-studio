@@ -10,12 +10,12 @@ bool NetworkClient::StartServer(uint16_t port)
 {
 	if (!m_control.Listen(port))
 	{
-		OnWarning("Failed to bind control socket");
+		OnWarning("Failed to bind control socket\n");
 		return false;
 	}
 	if (!m_data.Listen(port + 1))
 	{
-		OnWarning("Failed to bind data socket");
+		OnWarning("Failed to bind data socket\n");
 		return false;
 	}
 
@@ -27,12 +27,12 @@ bool NetworkClient::StartClient(const char* address, uint16_t port)
 {
 	if (!m_control.Connect(address, port))
 	{
-		OnWarning("Failed to bind control socket");
+		OnWarning("Failed to bind control socket\n");
 		return false;
 	}
 	if (!m_data.Connect(address, port + 1))
 	{
-		OnWarning("Failed to bind data socket");
+		OnWarning("Failed to bind data socket\n");
 		return false;
 	}
 
@@ -53,18 +53,38 @@ void NetworkClient::RunServer()
 
 	while (m_bRunning)
 	{
-		TcpSocket control;
-		TcpSocket data;
-		if (m_control.Accept(control, 1000))
 		{
-			OnClientConnected(control.GetAddress(), control.GetPort());
-			if (m_data.Accept(data, 1000))
+			TcpSocket control;
+			TcpSocket data;
+			if (m_control.Accept(control, 10))
 			{
-				OnClientConnected(data.GetAddress(), data.GetPort());
+				OnClientConnected(control.GetAddress(), control.GetPort());
+				if (m_data.Accept(data))
+				{
+					OnClientConnected(data.GetAddress(), data.GetPort());
 
-				std::unique_lock<std::mutex> lk(m_clientsMutex);
-				m_clients.push_back({ std::move(control), std::move(data) });
+					std::unique_lock<std::mutex> lk(m_clientsMutex);
+					m_clients.push_back({ std::move(control), std::move(data) });
+				}
 			}
+		}
+		{
+			// Execute requests
+			std::unique_lock<std::mutex> lk(m_clientsMutex);
+			std::unique_lock<std::mutex> lk2(m_requestMutex);
+			for (auto& request : m_requests)
+			{
+				for (Client& client : m_clients)
+					request->Execute(client.control, client.data);
+			}
+			m_requests.clear();
+		}
+
+		{
+			// Read requests if available
+			std::unique_lock<std::mutex> lk(m_clientsMutex);
+			for (Client& client : m_clients)
+				ReadFromNetwork(client.control, client.data, 10);
 		}
 	}
 }
@@ -75,48 +95,68 @@ void NetworkClient::RunClient()
 
 	while (m_bRunning)
 	{
-		// first receive packet id
-		uint32_t id;
-		int64_t ret = m_control.Recv(id);
-		if (ret != sizeof(id))
 		{
-			OnError("Recv error");
-			break;
-		}
-
-		switch (id)
-		{
-		case OutgoingSoundDataHeader::Type:
-		{
-			OutgoingSoundDataHeader header;
-			ret = m_control.Recv(header);
-			if (ret != sizeof(header))
+			// Execute requests
+			std::unique_lock<std::mutex> lk(m_requestMutex);
+			for (auto& request : m_requests)
 			{
-				OnError("Recv error");
-				return;
+				request->Execute(m_control, m_data);
 			}
-
-			std::unique_ptr<uint8_t[]> data = std::make_unique<uint8_t[]>(header.samplesSize);
-			ret = m_data.Recv(data.get(), header.samplesSize);
-			if (ret != header.samplesSize)
-			{
-				OnError("Recv error");
-				return;
-			}
-
-			OnSamplesReceived(header.clientId, header.samplesSize, data.release());
+			m_requests.clear();
 		}
-		}
+
+		ReadFromNetwork(m_control, m_data, 0);
 	}
 }
 
-void NetworkClient::Broadcast(const OutgoingSoundDataHeader& header, const uint8_t* buffer, uint32_t size)
+void NetworkClient::AddRequest(Request* request)
 {
-	std::unique_lock<std::mutex> lk(m_clientsMutex);
-	for (Client& client : m_clients)
+	std::unique_lock<std::mutex> lk(m_requestMutex);
+	m_requests.emplace_back(request);
+}
+
+void NetworkClient::ReadFromNetwork(TcpSocket& control, TcpSocket& data, int32_t timeout)
+{
+	// first receive packet id
+	uint32_t id;
+	if(!control.Recv(id, timeout))
+		return;
+
+	switch (id)
 	{
-		client.control.Send(OutgoingSoundDataHeader::Type);
-		client.control.Send(header);
-		client.data.Send(buffer, size);
+	case ListAllClientRequestHeader::Type:
+	{
+		ListAllClientRequestHeader header;
+		if (!control.Recv(header))
+			return;
+
+		OnListAllClientRequest();
+	}
+		break;
+	case ClientDataHeader::Type:
+	{
+		ClientDataHeader header;
+		if (!control.Recv(header))
+			return;
+
+		OnClientInfosReceived(header.clientId, header.name);
+	}
+		break;
+	case RawSoundDataHeader::Type:
+	{
+		RawSoundDataHeader header;
+		if (!control.Recv(header))
+			return;
+
+		std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(header.samplesSize);
+		if (!data.Recv(buffer.get(), header.samplesSize))
+			return;
+
+		OnSamplesReceived(header.clientId, header.samplesSize, buffer.release());
+	}
+		break;
+	default:
+		OnError("Invalid opcode received");
+		break;
 	}
 }

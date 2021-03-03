@@ -2,8 +2,25 @@
 
 #include <cstdint>
 
-// Header of data sent by the plugin to server
-struct OutgoingSoundDataHeader
+// Request sent to retrieve list of connected clients on the server
+struct ListAllClientRequestHeader
+{
+	const static uint32_t Type = 1;
+	uint8_t padding[4]; // Not used
+};
+
+// Client description
+struct ClientDataHeader
+{
+	const static uint32_t Type = 2;
+
+	uint16_t clientId;
+	uint8_t padding[2]; // Not used
+	char name[32];
+};
+
+// Sound description
+struct RawSoundDataHeader
 {
 	const static uint32_t Type = 3;
 

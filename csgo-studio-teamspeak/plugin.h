@@ -27,16 +27,16 @@ struct SoundData
 
 struct Plugin
 {
-	Plugin();
-
 	static Plugin& Instance();
 
 	int Init();
 	void Shutdown();
 
 	void SetCallbacks(const TS3Functions& functions) { m_functions = functions; }
+	void AddConnectionHandleId(uint64_t id) { m_serverConnectionHandleIDs.push_back(id); }
 
 	void ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound);
+	void ProcessListClients();
 
 	template<typename... TArgs>
 	void Log(LogLevel level, const char* format, TArgs... args)
@@ -54,9 +54,9 @@ struct Plugin
 
 private:
 	void LogInternal(LogLevel level, const char* str);
-	void WriteToFile(const ClientData& client, const std::unique_ptr<short[]>& buffer, uint32_t size);
 
 	NetworkClient m_server;
 
 	TS3Functions m_functions;
+	std::vector<uint64_t> m_serverConnectionHandleIDs;
 };

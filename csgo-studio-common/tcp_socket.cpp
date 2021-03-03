@@ -75,17 +75,13 @@ bool TcpSocket::Connect(const char* address, uint16_t port)
 {
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket == INVALID_SOCKET)
-	{
 		return false;
-	}
 
 	struct sockaddr_in addr = { 0 };
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
 	if (inet_pton(AF_INET, address, &addr.sin_addr) != 1)
-	{
 		return false;
-	}
 
 	int ret = connect(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 	if (ret == -1)
@@ -109,33 +105,51 @@ const char* TcpSocket::GetAddress() const
 	return m_address.c_str();
 }
 
-int64_t TcpSocket::Recv(void* buffer, int64_t size)
+bool TcpSocket::Recv(void* buffer, const int64_t size, const int32_t msec)
 {
 	if (m_socket == INVALID_SOCKET)
-		return 0;
+		return false;
 
-	return recv(m_socket, static_cast<char*>(buffer), size, 0);
-}
-
-int64_t TcpSocket::Send(const void* buffer, int64_t size)
-{
-	if (m_socket == INVALID_SOCKET)
-		return 0;
+	fd_set read_set;
+	FD_ZERO(&read_set);
+	FD_SET(m_socket, &read_set);
 	
-	return send(m_socket, static_cast<const char*>(buffer), size, 0);
+	if (msec > 0)
+	{
+		struct timeval timeout;
+		timeout.tv_usec = 1000 * msec;
+		int32_t ret = select((int)m_socket + 1, &read_set, nullptr, nullptr, &timeout);
+		if (ret <= 0)
+			return false;
+	}
+
+	int32_t bytes = recv(m_socket, static_cast<char*>(buffer), (int)size, 0);
+	return bytes == size;
 }
 
-bool TcpSocket::Accept(TcpSocket& socket, int32_t msec)
+bool TcpSocket::Send(const void* buffer, const int64_t size)
+{
+	if (m_socket == INVALID_SOCKET)
+		return false;
+	
+	int32_t bytes = send(m_socket, static_cast<const char*>(buffer), (int)size, 0);
+	return bytes == size;
+}
+
+bool TcpSocket::Accept(TcpSocket& socket, const int32_t msec)
 {
 	fd_set accept_set;
 	FD_ZERO(&accept_set);
 	FD_SET(m_socket, &accept_set);
 
-	struct timeval timeout;
-	timeout.tv_usec = 1000 * msec;
-	int32_t ret = select((int)m_socket + 1, &accept_set, nullptr, nullptr, &timeout);
-	if (ret <= 0)
-		return false;
+	if (msec > 0)
+	{
+		struct timeval timeout;
+		timeout.tv_usec = 1000 * msec;
+		int32_t ret = select((int)m_socket + 1, &accept_set, nullptr, nullptr, &timeout);
+		if (ret <= 0)
+			return false;
+	}
 
 	struct sockaddr_in addr = { 0 };
 	int len = sizeof(addr);
