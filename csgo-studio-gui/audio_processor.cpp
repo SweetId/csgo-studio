@@ -77,6 +77,10 @@ void AudioProcessor::RunAudio(QIODevice* audioDevice)
 			continue;
 		}
 
+		// skip client sample if not allowed
+		if (m_allowedClientIds.find(nextSample->clientId) == std::end(m_allowedClientIds))
+			continue;
+
 		emit OnClientTalking(nextSample->clientId);
 		audioDevice->write((char*)nextSample->data.get(), nextSample->size);
 		{

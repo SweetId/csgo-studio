@@ -5,6 +5,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <thread>
 
 #include "network_client.h"
@@ -19,6 +20,8 @@ public:
 
     bool Start(class QIODevice* audioDevice);
     void SetDelay(int32_t delay);
+
+    void SetEnabledClients(const std::set<uint16_t>& clients) { m_allowedClientIds = clients; }
 
 signals:
     void OnClientInfoReceived(quint16 clientId, QString name);
@@ -49,4 +52,6 @@ protected:
     };
     std::mutex m_samplesMutex;
     std::list<Samples> m_timedSamples;
+
+    std::set<uint16_t> m_allowedClientIds;
 };

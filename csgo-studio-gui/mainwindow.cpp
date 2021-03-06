@@ -12,6 +12,7 @@
 
 MainWindow::MainWindow()
 	: m_output(nullptr)
+	, m_serverTree(nullptr)
 {
 	QToolBar* toolbar = new QToolBar(this);
 	toolbar->addAction(tr("Connect"), [this]() { ConnectToTeamspeak(); });
@@ -22,25 +23,25 @@ MainWindow::MainWindow()
 	central->setLayout(centralLayout);
 	setCentralWidget(central);
 
-	QTreeWidget* tree = new QTreeWidget(central);
-	tree->setWindowTitle(tr("Channels"));
-	tree->headerItem()->setText(0, "Studio Channels");
-	tree->headerItem()->setText(1, "ID");
-	tree->setDragEnabled(true);
-	tree->setDragDropMode(QAbstractItemView::InternalMove);
-	tree->setDropIndicatorShown(true);
-	auto addChannel = [tree](const QString& text) {
+	m_serverTree = new QTreeWidget(central);
+	m_serverTree->setWindowTitle(tr("Channels"));
+	m_serverTree->headerItem()->setText(0, "Studio Channels");
+	m_serverTree->headerItem()->setText(1, "ID");
+	m_serverTree->setDragEnabled(true);
+	m_serverTree->setDragDropMode(QAbstractItemView::InternalMove);
+	m_serverTree->setDropIndicatorShown(true);
+	auto addChannel = [this](const QString& text) {
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0, text);
 		item->setFlags(Qt::ItemIsDropEnabled | Qt::ItemIsEnabled);
-		tree->addTopLevelItem(item);
+		m_serverTree->addTopLevelItem(item);
 	};
 	addChannel(tr("General"));
 	for(int i  = 1; i <= 5; ++i)
 		addChannel(tr("Channel %1").arg(i));
-	tree->expandAll();
+	m_serverTree->expandAll();
 
-	centralLayout->addWidget(tree);
+	centralLayout->addWidget(m_serverTree);
 
 	QVBoxLayout* generalLayout = new QVBoxLayout();
 
@@ -62,6 +63,8 @@ MainWindow::MainWindow()
 		m_processor.SetDelay(val);
 		});
 
+	delay->setValue(10);
+
 	QPushButton* refreshClients = new QPushButton(tr("Refresh Clients"), properties);
 	connect(refreshClients, &QPushButton::clicked, &m_processor, &AudioProcessor::RequestClientsInfos);
 
@@ -75,12 +78,18 @@ MainWindow::MainWindow()
 	channels->setFrameShadow(QFrame::Sunken);
 	channels->setWindowTitle(tr("Channels"));
 	QGridLayout* channelsLayout = new QGridLayout();
-	auto addButton = [channelsLayout](const QString& text, int row, int col) {
+	auto addButton = [this, channelsLayout](const QString& text, int row, int col) {
 		QPushButton* button = new QPushButton();
 		button->setText(text);
 		button->setCheckable(true);
 		channelsLayout->addWidget(button,row, col);
+
+		connect(button, &QPushButton::toggled, [this, text](bool bToggled) {
+			emit ChannelToggled(text, bToggled);
+		});
 	};
+
+	connect(this, &MainWindow::ChannelToggled, this, &MainWindow::OnChannelToggled);
 
 	addButton(tr("General"), 0, 0);
 	for (int i = 1; i <= 5; ++i)
@@ -122,8 +131,8 @@ MainWindow::MainWindow()
 	m_audioDevice = m_output->start();
 
 	connect(&m_processor, &AudioProcessor::OnClientInfoReceived, this, &MainWindow::OnClientConnected);
-	connect(&m_processor, &AudioProcessor::OnClientInfoReceived, [this, tree](quint16 clientId, QString name) {
-		auto items = tree->findItems(QString::number(clientId), Qt::MatchExactly | Qt::MatchRecursive, 1);
+	connect(&m_processor, &AudioProcessor::OnClientInfoReceived, [this](quint16 clientId, QString name) {
+		auto items = m_serverTree->findItems(QString::number(clientId), Qt::MatchExactly | Qt::MatchRecursive, 1);
 		if (items.isEmpty())
 		{
 			// insert new client
@@ -131,9 +140,9 @@ MainWindow::MainWindow()
 			item->setText(0, name);
 			item->setText(1, QString::number(clientId));
 			item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsEnabled);
-			tree->topLevelItem(0)->addChild(item);
-			tree->expandAll();
-			emit OnClientJoinedChannel(clientId, 0);
+			m_serverTree->topLevelItem(0)->addChild(item);
+			m_serverTree->expandAll();
+			emit ClientJoinedChannel(clientId, 0);
 		}
 		else
 		{
@@ -156,5 +165,34 @@ void MainWindow::ConnectToTeamspeak()
 
 void MainWindow::OnClientConnected(quint16 clientId, QString name)
 {
+	RefreshEnabledChannels();
 	qWarning() << name << " joined (id: " << clientId << ")";
+}
+
+void MainWindow::OnChannelToggled(QString name, bool bToggled)
+{
+	if (!bToggled)
+		m_enabledChannels.remove(name);
+	else
+		m_enabledChannels.insert(name);
+
+	RefreshEnabledChannels();
+}
+
+void MainWindow::RefreshEnabledChannels()
+{
+	std::set<uint16_t> clientsInEnabledChannels;
+	for (const QString& channel : m_enabledChannels)
+	{
+		QList<QTreeWidgetItem*> items = m_serverTree->findItems(channel, Qt::MatchExactly, 0);
+		if (!items.isEmpty())
+		{
+			for (int i = 0; i < items[0]->childCount(); ++i)
+			{
+				clientsInEnabledChannels.insert(items[0]->child(i)->text(1).toInt());
+			}
+		}
+	}
+
+	m_processor.SetEnabledClients(clientsInEnabledChannels);
 }
