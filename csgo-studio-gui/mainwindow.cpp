@@ -46,7 +46,7 @@ MainWindow::MainWindow()
 
 	// Properties panel
 	QFrame* properties = new QFrame(central);
-	QHBoxLayout* propertiesLayout = new QHBoxLayout(properties);
+	QGridLayout* propertiesLayout = new QGridLayout(properties);
 	properties->setFrameShape(QFrame::HLine);
 	properties->setFrameShadow(QFrame::Sunken);
 	properties->setWindowTitle(tr("Properties"));
@@ -62,8 +62,12 @@ MainWindow::MainWindow()
 		m_processor.SetDelay(val);
 		});
 
-	propertiesLayout->addWidget(delay);
-	propertiesLayout->addWidget(delayText);
+	QPushButton* refreshClients = new QPushButton(tr("Refresh Clients"), properties);
+	connect(refreshClients, &QPushButton::clicked, &m_processor, &AudioProcessor::RequestClientsInfos);
+
+	propertiesLayout->addWidget(delay, 0, 0);
+	propertiesLayout->addWidget(delayText, 0, 1);
+	propertiesLayout->addWidget(refreshClients, 1, 0);
 	properties->setLayout(propertiesLayout);
 
 	QFrame* channels = new QFrame(central);
@@ -119,13 +123,22 @@ MainWindow::MainWindow()
 
 	connect(&m_processor, &AudioProcessor::OnClientInfoReceived, this, &MainWindow::OnClientConnected);
 	connect(&m_processor, &AudioProcessor::OnClientInfoReceived, [this, tree](quint16 clientId, QString name) {
-		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0, name);
-		item->setText(1, QString::number(clientId));
-		item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsEnabled);
-		tree->topLevelItem(0)->addChild(item);
-		tree->expandAll();
-		emit OnClientJoinedChannel(clientId, 0);
+		auto items = tree->findItems(QString::number(clientId), Qt::MatchExactly | Qt::MatchRecursive, 1);
+		if (items.isEmpty())
+		{
+			// insert new client
+			QTreeWidgetItem* item = new QTreeWidgetItem();
+			item->setText(0, name);
+			item->setText(1, QString::number(clientId));
+			item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsEnabled);
+			tree->topLevelItem(0)->addChild(item);
+			tree->expandAll();
+			emit OnClientJoinedChannel(clientId, 0);
+		}
+		else
+		{
+			items[0]->setText(0, name);
+		}
 	});
 	connect(&m_processor, &AudioProcessor::OnInfo, this, [](QString str) { qInfo() << str; });
 	connect(&m_processor, &AudioProcessor::OnWarning, this, [](QString str) { qWarning() << str; });

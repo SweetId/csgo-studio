@@ -105,7 +105,7 @@ void NetworkClient::RunClient()
 			m_requests.clear();
 		}
 
-		ReadFromNetwork(m_control, m_data, 0);
+		ReadFromNetwork(m_control, m_data, 10);
 	}
 }
 

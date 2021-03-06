@@ -28,9 +28,10 @@ signals:
     void OnWarning(QString str);
     void OnError(QString str);
 
-protected:
+public slots:
+    void RequestClientsInfos();
 
-    void RunClient();
+protected:
     void RunAudio(class QIODevice* audioDevice);
 
     NetworkClient m_client;

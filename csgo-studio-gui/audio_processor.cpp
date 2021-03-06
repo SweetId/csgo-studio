@@ -40,11 +40,16 @@ bool AudioProcessor::Start(QIODevice* audioDevice)
 		m_client.OnWarning += [this](const char* str) { emit OnWarning(str); };
 		m_client.OnError += [this](const char* str) { emit OnError(str); };
 
-		m_client.AddRequest(new TRequest<ListAllClientRequestHeader>());
+		RequestClientsInfos();
 
 		m_processThread = std::thread([this, audioDevice]() { RunAudio(audioDevice); });
 	}
 	return bConnected;
+}
+
+void AudioProcessor::RequestClientsInfos()
+{
+	m_client.AddRequest(new TRequest<ListAllClientRequestHeader>());
 }
 
 void AudioProcessor::RunAudio(QIODevice* audioDevice)
