@@ -137,21 +137,19 @@ void Plugin::ProcessListClients()
 	std::vector<TSClient> tsClients;
 
 	Log(LogLevel_INFO, "ProcessListClients()\n");
-	uint64_t* servers = nullptr;
-	m_functions.getServerConnectionHandlerList(&servers);
 
-	for (int32_t j = 0; servers[j]; ++j)
+	for (int64_t serverId: m_serverConnectionHandleIDs)
 	{
-		Log(LogLevel_INFO, "ProcessListClients server %d\n", j);
+		Log(LogLevel_INFO, "ProcessListClients server %d\n", serverId);
 		anyID* clients = nullptr;
-		int res = m_functions.getClientList(servers[j], &clients);
+		int res = m_functions.getClientList(serverId, &clients);
 		if (res == Error_Success)
 		{
 			for (int32_t i = 0; clients[i]; ++i)
 			{
 				int32_t id = clients[i];
 				char name[32] = { 0 };
-				m_functions.getClientDisplayName(servers[j], clients[i], name, 32);
+				m_functions.getClientDisplayName(serverId, clients[i], name, 32);
 
 				auto it = std::find_if(std::begin(tsClients), std::end(tsClients), [id](const TSClient& cl) { return cl.id == id; });
 				if (it == std::end(tsClients))
@@ -173,4 +171,24 @@ void Plugin::ProcessListClients()
 		Log(LogLevel_INFO, "Sending client infos: %s %d\n", client.name, client.id);
 		m_server.AddRequest(request.release());
 	}
+}
+
+void Plugin::PrintError(int32_t errorCode)
+{
+	char* message = nullptr;
+	if (m_functions.getErrorMessage(errorCode, &message) == Error_Success)
+	{
+		Log(LogLevel_ERROR, "[ERROR]: %s\n", message);
+		m_functions.freeMemory(message);
+	}
+}
+
+void Plugin::AddServerConnectionHandleId(uint64_t id)
+{
+	m_serverConnectionHandleIDs.insert(id);
+}
+
+void Plugin::RemoveServerConnectionHandleId(uint64_t id)
+{
+	m_serverConnectionHandleIDs.erase(id);
 }

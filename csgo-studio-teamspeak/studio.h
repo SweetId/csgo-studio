@@ -32,5 +32,14 @@ extern "C" {
    */
 	CSGOSTUDIO_API void ts3plugin_onEditPostProcessVoiceDataEvent(uint64 serverConnectionHandlerID, anyID clientID, short* samples, int sampleCount, int channels, const unsigned int* channelSpeakerArray, unsigned int* channelFillMask);
 #ifdef __cplusplus
+
+	/**
+	 * @brief called when the status of a connection changes
+	 *
+	 * @param serverConnectionHandlerID specifies on which connection the status has changed
+	 * @param newStatus the current status of the connection. One of the values from the ConnectStatus enum
+	 * @param errorNumber if the state change was caused by an error this is set to one of the values from the @ref Ts3ErrorType enum
+	*/
+	CSGOSTUDIO_API void ts3plugin_onConnectStatusChangeEvent(uint64 serverConnectionHandlerID, int newStatus, unsigned int errorNumber);
 }
 #endif

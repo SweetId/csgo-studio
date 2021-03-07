@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <mutex>
 #include <thread>
-#include <vector>
+#include <set>
 
 #include "defines.h"
 #include "network_client.h"
@@ -33,7 +33,8 @@ struct Plugin
 	void Shutdown();
 
 	void SetCallbacks(const TS3Functions& functions) { m_functions = functions; }
-	void AddConnectionHandleId(uint64_t id) { m_serverConnectionHandleIDs.push_back(id); }
+	void AddServerConnectionHandleId(uint64_t id);
+	void RemoveServerConnectionHandleId(uint64_t id);
 
 	void ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound);
 	void ProcessListClients();
@@ -54,9 +55,10 @@ struct Plugin
 
 private:
 	void LogInternal(LogLevel level, const char* str);
+	void PrintError(int32_t errorCode);
 
 	NetworkClient m_server;
 
 	TS3Functions m_functions;
-	std::vector<uint64_t> m_serverConnectionHandleIDs;
+	std::set<uint64_t> m_serverConnectionHandleIDs;
 };
