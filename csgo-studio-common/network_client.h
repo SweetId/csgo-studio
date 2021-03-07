@@ -63,6 +63,7 @@ class CSGOSTUDIO_API NetworkClient
 {
 public:
 	NetworkClient();
+	~NetworkClient();
 
 	bool StartServer(uint16_t port);
 	bool StartClient(const char* address, uint16_t port);

@@ -6,6 +6,13 @@ NetworkClient::NetworkClient()
 
 }
 
+NetworkClient::~NetworkClient()
+{
+	m_bRunning = false;
+	if (m_processThread.joinable())
+		m_processThread.join();
+}
+
 bool NetworkClient::StartServer(uint16_t port)
 {
 	if (!m_control.Listen(port))
@@ -19,6 +26,7 @@ bool NetworkClient::StartServer(uint16_t port)
 		return false;
 	}
 
+	m_bRunning = true;
 	m_processThread = std::thread([this]() { RunServer(); });
 	return true;
 }
@@ -36,6 +44,7 @@ bool NetworkClient::StartClient(const char* address, uint16_t port)
 		return false;
 	}
 
+	m_bRunning = true;
 	m_processThread = std::thread([this]() { RunClient(); });
 	return true;
 }
@@ -49,8 +58,6 @@ void NetworkClient::Shutdown()
 
 void NetworkClient::RunServer()
 {
-	m_bRunning = true;
-
 	while (m_bRunning)
 	{
 		{
@@ -91,8 +98,6 @@ void NetworkClient::RunServer()
 
 void NetworkClient::RunClient()
 {
-	m_bRunning = true;
-
 	while (m_bRunning)
 	{
 		{

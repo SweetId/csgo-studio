@@ -42,6 +42,7 @@ bool AudioProcessor::Start(QIODevice* audioDevice)
 
 		RequestClientsInfos();
 
+		m_bRunning = true;
 		m_processThread = std::thread([this, audioDevice]() { RunAudio(audioDevice); });
 	}
 	return bConnected;
@@ -54,7 +55,6 @@ void AudioProcessor::RequestClientsInfos()
 
 void AudioProcessor::RunAudio(QIODevice* audioDevice)
 {
-	m_bRunning = true;
 	while (m_bRunning)
 	{
 		if (m_timedSamples.empty())
