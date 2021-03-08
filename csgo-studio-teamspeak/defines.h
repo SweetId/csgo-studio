@@ -15,7 +15,7 @@ static const uint16_t CsgoStudio_ListenPort = 37015;
 
 #define CSGOSTUDIO_VERSION_MAJOR 0
 #define CSGOSTUDIO_VERSION_MINOR 1
-#define CSGOSTUDIO_VERSION_REVISION 1
+#define CSGOSTUDIO_VERSION_REVISION 2
 
 #define _STR(A) #A
 #define STR(A) _STR(A)
