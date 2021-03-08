@@ -138,15 +138,24 @@ void NetworkClient::ReadFromNetwork(TcpSocket& control, TcpSocket& data, int32_t
 		OnListAllClientRequest();
 	}
 		break;
-	case ClientDataHeader::Type:
+	case ClientConnectedHeader::Type:
 	{
-		ClientDataHeader header;
+		ClientConnectedHeader header;
 		if (!control.Recv(header))
 			return;
 
-		OnClientInfosReceived(header.clientId, header.name);
+		OnTeamspeakClientConnected(header.clientId, header.name);
 	}
 		break;
+	case ClientDisconnectedHeader::Type:
+	{
+		ClientDisconnectedHeader header;
+		if (!control.Recv(header))
+			return;
+
+		OnTeamspeakClientDisconnected(header.clientId);
+	}
+	break;
 	case RawSoundDataHeader::Type:
 	{
 		RawSoundDataHeader header;

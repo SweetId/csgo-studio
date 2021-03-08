@@ -36,6 +36,18 @@ void _onConnectStatusChangeEvent(uint64 serverConnectionHandlerID, int newStatus
 	}
 }
 
+void _onClientMoveEvent(uint64 serverConnectionHandlerID, anyID clientID, uint64 oldChannelID, uint64 newChannelID, int visibility, const char* moveMessage)
+{
+	if (oldChannelID == 0 && newChannelID != 0)
+	{
+		Plugin::Instance().ClientConnected(serverConnectionHandlerID, clientID);
+	}
+	else if (oldChannelID != 0 && newChannelID == 0)
+	{
+		Plugin::Instance().ClientDisconnected(serverConnectionHandlerID, clientID);
+	}
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,6 +104,11 @@ extern "C" {
 	void ts3plugin_onConnectStatusChangeEvent(uint64 serverConnectionHandlerID, int newStatus, unsigned int errorNumber)
 	{
 		_onConnectStatusChangeEvent(serverConnectionHandlerID, newStatus, errorNumber);
+	}
+
+	void ts3plugin_onClientMoveEvent(uint64 serverConnectionHandlerID, anyID clientID, uint64 oldChannelID, uint64 newChannelID, int visibility, const char* moveMessage)
+	{
+		_onClientMoveEvent(serverConnectionHandlerID, clientID, oldChannelID, newChannelID, visibility, moveMessage);
 	}
 
 #ifdef __cplusplus

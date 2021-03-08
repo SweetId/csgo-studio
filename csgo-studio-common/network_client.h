@@ -76,7 +76,8 @@ public:
 	Callback<const char*, uint16_t> OnClientConnected;
 
 	Callback<> OnListAllClientRequest;
-	Callback<uint32_t, const char*> OnClientInfosReceived;
+	Callback<uint32_t, const char*> OnTeamspeakClientConnected;
+	Callback<uint32_t> OnTeamspeakClientDisconnected;
 
 	Callback<uint16_t, uint32_t, uint8_t*> OnSamplesReceived;
 

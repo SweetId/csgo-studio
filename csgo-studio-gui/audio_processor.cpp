@@ -24,6 +24,7 @@ void AudioProcessor::SetDelay(int32_t delay)
 
 bool AudioProcessor::Start(QIODevice* audioDevice)
 {
+	m_client.Shutdown();
 	bool bConnected = m_client.StartClient("127.0.0.1", 37015);
 	if (bConnected)
 	{
@@ -32,8 +33,12 @@ bool AudioProcessor::Start(QIODevice* audioDevice)
 			m_timedSamples.push_back({ clientId, QDateTime::currentMSecsSinceEpoch(), size, std::move(std::unique_ptr<uint8_t[]>(samples)) });
 		};
 
-		m_client.OnClientInfosReceived += [this](uint16_t clientId, const char* name) {
-			emit OnClientInfoReceived(clientId, name);
+		m_client.OnTeamspeakClientConnected += [this](uint16_t clientId, const char* name) {
+			emit OnTeamspeakClientConnected(clientId, name);
+		};
+
+		m_client.OnTeamspeakClientDisconnected += [this](uint16_t clientId) {
+			emit OnTeamspeakClientDisconnected(clientId);
 		};
 
 		m_client.OnInfo += [this](const char* str) { emit OnInfo(str); };

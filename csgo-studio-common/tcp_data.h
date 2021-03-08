@@ -9,8 +9,8 @@ struct ListAllClientRequestHeader
 	uint8_t padding[4]; // Not used
 };
 
-// Client description
-struct ClientDataHeader
+// Sent when client connected
+struct ClientConnectedHeader
 {
 	const static uint32_t Type = 2;
 
@@ -19,10 +19,19 @@ struct ClientDataHeader
 	char name[32];
 };
 
+// Sent when client disconnected
+struct ClientDisconnectedHeader
+{
+	const static uint32_t Type = 3;
+
+	uint16_t clientId;
+	uint8_t padding[2]; // Not used
+};
+
 // Sound description
 struct RawSoundDataHeader
 {
-	const static uint32_t Type = 3;
+	const static uint32_t Type = 4;
 
 	uint16_t clientId; // The teamspeak client id
 	uint8_t padding[2]; // Not used

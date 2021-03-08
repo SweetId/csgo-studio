@@ -41,5 +41,15 @@ extern "C" {
 	 * @param errorNumber if the state change was caused by an error this is set to one of the values from the @ref Ts3ErrorType enum
 	*/
 	CSGOSTUDIO_API void ts3plugin_onConnectStatusChangeEvent(uint64 serverConnectionHandlerID, int newStatus, unsigned int errorNumber);
+
+	/**
+	 * @brief called when a client moves to a different channel, disconnects, connects, gets kicked or banned.
+	 *
+	 * @param serverConnectionHandlerID specifies on which connection the callback was called
+	 * @param clientID id of the client changing channels
+	 * @param oldChannelID id of the previous channel of the client.
+	 * @param newChannelID id of the current channel of the client. Can be 0, if the client disconnected / got kicked / banned.
+	*/
+	CSGOSTUDIO_API void ts3plugin_onClientMoveEvent(uint64 serverConnectionHandlerID, anyID clientID, uint64 oldChannelID, uint64 newChannelID, int visibility, const char* moveMessage);
 }
 #endif

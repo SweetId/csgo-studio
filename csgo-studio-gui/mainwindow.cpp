@@ -130,8 +130,7 @@ MainWindow::MainWindow()
 	m_output = new QAudioOutput(format, this);
 	m_audioDevice = m_output->start();
 
-	connect(&m_processor, &AudioProcessor::OnClientInfoReceived, this, &MainWindow::OnClientConnected);
-	connect(&m_processor, &AudioProcessor::OnClientInfoReceived, [this](quint16 clientId, QString name) {
+	connect(&m_processor, &AudioProcessor::OnTeamspeakClientConnected, [this](quint16 clientId, QString name) {
 		auto items = m_serverTree->findItems(QString::number(clientId), Qt::MatchExactly | Qt::MatchRecursive, 1);
 		if (items.isEmpty())
 		{
@@ -149,6 +148,15 @@ MainWindow::MainWindow()
 			items[0]->setText(0, name);
 		}
 	});
+	connect(&m_processor, &AudioProcessor::OnTeamspeakClientConnected, this, &MainWindow::OnClientConnected);
+	connect(&m_processor, &AudioProcessor::OnTeamspeakClientDisconnected, [this](quint16 clientId) {
+		auto items = m_serverTree->findItems(QString::number(clientId), Qt::MatchExactly | Qt::MatchRecursive, 1);
+		if (!items.isEmpty())
+		{
+			delete items[0];
+		}
+	});
+
 	connect(&m_processor, &AudioProcessor::OnInfo, this, [](QString str) { qInfo() << str; });
 	connect(&m_processor, &AudioProcessor::OnWarning, this, [](QString str) { qWarning() << str; });
 	connect(&m_processor, &AudioProcessor::OnError, this, [](QString str) { qCritical() << str; });

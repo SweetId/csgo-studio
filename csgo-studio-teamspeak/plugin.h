@@ -39,6 +39,9 @@ struct Plugin
 	void ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientData& client, const SoundData& sound);
 	void ProcessListClients();
 
+	void ClientConnected(uint64_t serverConnectionHandlerID, anyID clientID);
+	void ClientDisconnected(uint64_t serverConnectionHandlerID, anyID clientID);
+
 	template<typename... TArgs>
 	void Log(LogLevel level, const char* format, TArgs... args)
 	{

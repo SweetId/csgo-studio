@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <map>
 #include <WinSock2.h>
 
 #include "tcp_data.h"
@@ -122,22 +123,11 @@ void Plugin::ProcessVoiceData(uint64_t serverConnectionHandlerID, const ClientDa
 
 void Plugin::ProcessListClients()
 {
-	struct TSClient
-	{
-		TSClient(int32_t id, char* nameptr)
-			: id(id)
-		{
-			strncpy_s(name, nameptr, 32);
-		}
-
-		int32_t id;
-		char name[32];
-	};
-
-	std::vector<TSClient> tsClients;
+	std::map<anyID, uint64_t> tsClients;
 
 	Log(LogLevel_INFO, "ProcessListClients()\n");
 
+	// Retrieve list of all clients connected for all handles
 	for (int64_t serverId: m_serverConnectionHandleIDs)
 	{
 		Log(LogLevel_INFO, "ProcessListClients server %d\n", serverId);
@@ -147,30 +137,39 @@ void Plugin::ProcessListClients()
 		{
 			for (int32_t i = 0; clients[i]; ++i)
 			{
-				int32_t id = clients[i];
-				char name[32] = { 0 };
-				m_functions.getClientDisplayName(serverId, clients[i], name, 32);
-
-				auto it = std::find_if(std::begin(tsClients), std::end(tsClients), [id](const TSClient& cl) { return cl.id == id; });
-				if (it == std::end(tsClients))
-				{
-					tsClients.push_back({ id, name });
-				}
+				tsClients[clients[i]] = serverId;
 			}
 		}
 
 		m_functions.freeMemory(clients);
 	}
 
-	for (const TSClient& client : tsClients)
+	for (const auto& client : tsClients)
 	{
-		std::unique_ptr<TRequest<ClientDataHeader>> request = std::make_unique<TRequest<ClientDataHeader>>();
-		request->header.clientId = client.id;
-		strncpy_s(request->header.name, client.name, 32);
-
-		Log(LogLevel_INFO, "Sending client infos: %s %d\n", client.name, client.id);
-		m_server.AddRequest(request.release());
+		ClientConnected(client.second, client.first);
 	}
+}
+
+void Plugin::ClientConnected(uint64_t serverConnectionHandlerID, anyID clientID)
+{
+	std::unique_ptr<TRequest<ClientConnectedHeader>> request = std::make_unique<TRequest<ClientConnectedHeader>>();
+	request->header.clientId = clientID;
+
+	int ret = m_functions.getClientDisplayName(serverConnectionHandlerID, request->header.clientId, request->header.name, 32);
+	if (ret != Error_Success)
+	{
+		PrintError(ret);
+		return;
+	}
+
+	m_server.AddRequest(request.release());
+}
+
+void Plugin::ClientDisconnected(uint64_t serverConnectionHandlerID, anyID clientID)
+{
+	std::unique_ptr<TRequest<ClientDisconnectedHeader>> request = std::make_unique<TRequest<ClientDisconnectedHeader>>();
+	request->header.clientId = clientID;
+	m_server.AddRequest(request.release());
 }
 
 void Plugin::PrintError(int32_t errorCode)

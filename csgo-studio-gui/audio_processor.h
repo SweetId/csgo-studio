@@ -24,7 +24,8 @@ public:
     void SetEnabledClients(const std::set<uint16_t>& clients) { m_allowedClientIds = clients; }
 
 signals:
-    void OnClientInfoReceived(quint16 clientId, QString name);
+    void OnTeamspeakClientConnected(quint16 clientId, QString name);
+    void OnTeamspeakClientDisconnected(quint16 clientId);
     void OnClientTalking(quint16 clientId);
 
     void OnInfo(QString str);
