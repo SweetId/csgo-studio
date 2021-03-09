@@ -24,7 +24,7 @@ void AudioProcessor::SetDelay(int32_t delay)
 
 bool AudioProcessor::Start(QIODevice* audioDevice)
 {
-	m_client.Shutdown();
+	Stop();
 	bool bConnected = m_client.StartClient("127.0.0.1", 37015);
 	if (bConnected)
 	{
@@ -51,6 +51,18 @@ bool AudioProcessor::Start(QIODevice* audioDevice)
 		m_processThread = std::thread([this, audioDevice]() { RunAudio(audioDevice); });
 	}
 	return bConnected;
+}
+
+void AudioProcessor::Stop()
+{
+	m_bRunning = false;
+	if (m_processThread.joinable())
+		m_processThread.join();
+
+	m_client.Shutdown();
+
+	m_timedSamples.clear();
+	m_allowedClientIds.clear();
 }
 
 void AudioProcessor::RequestClientsInfos()

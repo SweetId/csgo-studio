@@ -21,6 +21,8 @@ public:
     bool Start(class QIODevice* audioDevice);
     void SetDelay(int32_t delay);
 
+    void Stop();
+
     void SetEnabledClients(const std::set<uint16_t>& clients) { m_allowedClientIds = clients; }
 
 signals:

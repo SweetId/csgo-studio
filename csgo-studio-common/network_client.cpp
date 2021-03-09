@@ -52,7 +52,8 @@ bool NetworkClient::StartClient(const char* address, uint16_t port)
 void NetworkClient::Shutdown()
 {
 	m_bRunning = false;
-	m_processThread.join();
+	if (m_processThread.joinable())
+		m_processThread.join();
 	m_clients.clear();
 }
 
