@@ -26,6 +26,7 @@ private:
     class QTreeWidget* m_serverTree;
 
     void ConnectToTeamspeak();
+    void DisconnectFromTeamspeak();
     void RefreshEnabledChannels();
 
     AudioProcessor m_processor;

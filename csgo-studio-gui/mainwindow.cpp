@@ -8,15 +8,26 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QToolbar>
+#include <QToolButton>
 #include <QTreeWidget>
 
 MainWindow::MainWindow()
 	: m_output(nullptr)
 	, m_serverTree(nullptr)
 {
+	QAction* connectAction = new QAction(QIcon(":/icons/ts_disconnected.png"), tr("Connect"), this);// [this]() { ConnectToTeamspeak(); });
+	QAction* disconnectAction = new QAction(QIcon(":/icons/ts_connected.png"), tr("Disconnect"), this);
+
 	QToolBar* toolbar = new QToolBar(this);
-	toolbar->addAction(tr("Connect"), [this]() { ConnectToTeamspeak(); });
+	QToolButton* connectButton = new QToolButton(toolbar);
+	connectButton->setDefaultAction(connectAction);
+	toolbar->addWidget(connectButton);
 	addToolBar(Qt::ToolBarArea::TopToolBarArea, toolbar);
+
+	connect(connectAction, &QAction::triggered, [this]() { ConnectToTeamspeak(); });
+	connect(connectAction, &QAction::triggered, [connectButton, disconnectAction]() { connectButton->setDefaultAction(disconnectAction); });
+	connect(disconnectAction, &QAction::triggered, [this]() { DisconnectFromTeamspeak(); });
+	connect(disconnectAction, &QAction::triggered, [connectButton, connectAction]() { connectButton->setDefaultAction(connectAction); });
 
 	QWidget* central = new QWidget(this);
 	QHBoxLayout* centralLayout = new QHBoxLayout(central);
@@ -169,6 +180,11 @@ MainWindow::~MainWindow()
 void MainWindow::ConnectToTeamspeak()
 {
 	m_processor.Start(m_audioDevice);
+}
+
+void MainWindow::DisconnectFromTeamspeak()
+{
+	m_processor.Stop();
 }
 
 void MainWindow::OnClientConnected(quint16 clientId, QString name)
