@@ -83,7 +83,8 @@ project "csgo-studio-gui"
 
 	files {
 		"../csgo-studio-gui/**.h",
-		"../csgo-studio-gui/**.cpp"
+		"../csgo-studio-gui/**.cpp",
+		"../csgo-studio-gui/**.qrc"
 	}
 
 	links {
