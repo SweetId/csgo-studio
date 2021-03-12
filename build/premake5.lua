@@ -3,6 +3,11 @@ require( "./modules/qt/qt" )
 -- this line is optional, but it avoids writting premake.extensions.qt to
 -- call the plugin's methods.
 local qt = premake.extensions.qt
+qt.modules.multimediawidgets = {
+	name = "MultimediaWidgets",
+	include = "QtMultimediaWidgets",
+	defines = { "QT_MULTIMEDIAWIDGETS_LIB" }
+}
 
 local qt_path = os.getenv("QT_PATH")
 print("Using QT installed at "..qt_path)
