@@ -60,6 +60,35 @@ project "csgo-studio-teamspeak"
 		"csgo-studio-common"
 	}
 
+project "csgo-studio-player"
+	kind "WindowedApp"
+	language "C++"
+	cppdialect "C++17"
+	targetdir "../Binaries"
+	targetname "csgo-studio-player"
+
+	qt.enable()
+	qtpath(qt_path)
+	qtmodules { "core", "gui", "widgets", "multimedia", "multimediawidgets" }
+	qtprefix "QT5"
+
+	configuration { "Debug" }
+		qtsuffix "d"
+	configuration { }
+
+	includedirs {
+		"../csgo-studio-common/"
+	}
+
+	files {
+		"../csgo-studio-player/**.h",
+		"../csgo-studio-player/**.cpp",
+		"../csgo-studio-player/**.qrc"
+	}
+
+	links {
+		"csgo-studio-common"
+	}
 
 project "csgo-studio-gui"
 	kind "WindowedApp"

@@ -1,0 +1,8 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>icons/camera_off.png</file>
+    <file>icons/camera_on.png</file>
+    <file>icons/microphone_off.png</file>
+    <file>icons/microphone_on.png</file>
+</qresource>
+</RCC>
