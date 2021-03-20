@@ -162,3 +162,33 @@ project "csgo-studio-server"
 	links {
 		"csgo-studio-common"
 	}
+
+project "csgo-studio-director"
+	kind "WindowedApp"
+	language "C++"
+	cppdialect "C++17"
+	targetdir "../Binaries"
+	targetname "csgo-studio-director"
+
+	qt.enable()
+	qtpath(qt_path)
+	qtmodules { "core", "gui", "multimedia", "network", "widgets" }
+	qtprefix "QT5"
+
+	configuration { "Debug" }
+		qtsuffix "d"
+	configuration { }
+
+	includedirs {
+		"../csgo-studio-common/"
+	}
+
+	files {
+		"../csgo-studio-director/**.h",
+		"../csgo-studio-director/**.cpp"
+	}
+
+	links {
+		"csgo-studio-common"
+	}
+
