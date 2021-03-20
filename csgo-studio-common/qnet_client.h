@@ -1,6 +1,7 @@
 #pragma once
 
 #include "qnet_connection.h"
+#include "qnet_data.h"
 
 #include <QAudioBuffer>
 #include <QTcpSocket>
@@ -14,6 +15,7 @@ class Request
 public:
 	virtual ~Request() = default;
 	virtual quint32 GetType() const = 0;
+	virtual bool HasData() const = 0;
 
 	virtual void SendControl(QDataStream& stream) = 0;
 	virtual void RecvControl(QDataStream& stream) = 0;
@@ -22,23 +24,26 @@ public:
 	virtual void RecvData(QDataStream& stream) = 0;
 };
 
-template <typename THeader, typename TData>
+template <typename THeader>
 class TRequest : public Request
 {
 public:
 	THeader header;
-	TData data;
 
 	TRequest() {}
 
-	TRequest(const THeader& header, const TData& data)
+	TRequest(const THeader& header)
 		: header(header)
-		, data(data)
 	{}
 
 	virtual quint32 GetType() const override
 	{
 		return THeader::Type;
+	}
+
+	virtual bool HasData() const override
+	{
+		return THeader::HasData;
 	}
 
 	virtual void SendControl(QDataStream& stream) override
@@ -51,10 +56,30 @@ public:
 		stream >> header;
 	}
 
+	virtual void SendData(QDataStream& stream) override	{}
+	virtual void RecvData(QDataStream& stream) override	{}
+};
+
+
+
+template <typename THeader, typename TData>
+class TRequestWithData : public TRequest<THeader>
+{
+public:
+	TData data;
+
+	TRequestWithData() {}
+
+	TRequestWithData(const THeader& header, const TData& data)
+		: TRequest(header)
+		, data(data)
+	{}
+
 	virtual void SendData(QDataStream& stream) override
 	{
 		stream << data;
 	}
+
 	virtual void RecvData(QDataStream& stream) override
 	{
 		stream >> data;
@@ -80,8 +105,9 @@ signals:
 	void ConnectedToServer();
 	void DisconnectedFromServer();
 
-	void CameraFrameReceived(QImage image);
-	void MicrophoneSamplesReceived(QByteArray sound);
+	void ClientIdentifierReceived(QNetClientIdentifier identifier);
+	void CameraFrameReceived(QNetCameraFrame header, QImage image);
+	void MicrophoneSamplesReceived(QNetSoundwave header, QByteArray sound);
 
 protected slots:
 	void OnControlConnectionEstablished();
@@ -98,6 +124,7 @@ protected slots:
 
 protected:
 	void BindEvents();
+	void InvokeCallback(std::unique_ptr<Request>& request);
 
 	QTcpSocket* m_controlChannel;
 	QTcpSocket* m_dataChannel;

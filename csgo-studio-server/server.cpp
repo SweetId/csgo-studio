@@ -1,5 +1,7 @@
 #include "server.h"
 
+#include <QDateTime>
+
 #include "qnet_data.h"
 
 Server::Server(quint16 clientsPort, quint16 directorPort)
@@ -9,24 +11,27 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 	m_directorsServer.Start(QHostAddress::AnyIPv4, directorPort);
 
 	connect(&m_clientsServer, &QNetServer::ClientConnected, [this](QNetClient* client) {
-		m_clientIds[client] = m_nextClientId++;
-		connect(client, &QNetClient::CameraFrameReceived, [this, client](QImage image) { OnCameraFrameReceived(m_clientIds[client], image); });
-		connect(client, &QNetClient::MicrophoneSamplesReceived, [this, client](QByteArray samples) { OnMicrophoneSampleReceived(m_clientIds[client], samples); });
+		m_clientIds[client].id = m_nextClientId++;
+		connect(client, &QNetClient::ClientIdentifierReceived, [this, client](QNetClientIdentifier identifier) {
+			m_clientIds[client].name = identifier.name;
+		});
+		connect(client, &QNetClient::CameraFrameReceived, [this, client](QNetCameraFrame header, QImage image) {
+			header.id = m_clientIds[client].id;
+			OnCameraFrameReceived(header, image);
+		});
+		connect(client, &QNetClient::MicrophoneSamplesReceived, [this, client](QNetSoundwave header, QByteArray samples) {
+			header.id = m_clientIds[client].id;
+			OnMicrophoneSampleReceived(header, samples);
+		});
 	});
 }
 
-void Server::OnCameraFrameReceived(quint32 clientId, const QImage& image)
+void Server::OnCameraFrameReceived(const QNetCameraFrame& header, const QImage& image)
 {
-	QNetCameraFrame header;
-	header.id = clientId;
-	header.size = image.sizeInBytes();
-	m_directorsServer.Broadcast(TRequest<QNetCameraFrame, QImage>(header, image));
+	m_directorsServer.Broadcast(TRequestWithData<QNetCameraFrame, QImage>(header, image));
 }
 
-void Server::OnMicrophoneSampleReceived(quint32 clientId, const QByteArray& samples)
+void Server::OnMicrophoneSampleReceived(const QNetSoundwave& header, const QByteArray& samples)
 {
-	QNetSoundwave header;
-	header.id = clientId;
-	header.size = samples.size();
-	m_directorsServer.Broadcast(TRequest<QNetSoundwave, QByteArray>(header, samples));
+	m_directorsServer.Broadcast(TRequestWithData<QNetSoundwave, QByteArray>(header, samples));
 }

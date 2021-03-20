@@ -178,7 +178,7 @@ void MainWindow::OnCameraFrame(int id, const QVideoFrame& frame)
 		QNetCameraFrame header;
 		header.id = 0;
 		header.size = image.sizeInBytes();
-		m_connection.Send(TRequest<QNetCameraFrame, QImage>(header, image));
+		m_connection.Send(TRequestWithData<QNetCameraFrame, QImage>(header, image));
 	}
 	m_videoCapture->capture();
 }
@@ -213,7 +213,7 @@ void MainWindow::OnMicrophoneSample(QAudioBuffer buffer)
 		QNetSoundwave header;
 		header.id = 0;
 		header.size = stereoSound.size();
-		m_connection.Send(TRequest<QNetSoundwave, QByteArray>(header, stereoSound));
+		m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, stereoSound));
 	}
 }
 

@@ -2,26 +2,33 @@
 
 #include <QHostAddress>
 #include <QImage>
-#include "qnet_data.h"
 
 #include <functional>
 
-#define REQUEST(Header, Data) \
-	{ Header::Type, []() { return new TRequest<Header, Data>; } }
+#define REQUESTWITHOUTDATA(Header) \
+	{ Header::Type, []() { return new TRequest<Header>; } }
+
+#define REQUESTWITHDATA(Header, Data) \
+	{ Header::Type, []() { return new TRequestWithData<Header, Data>; } }
 
 QMap<quint32, std::function<Request* ()>> RequestsFactory =
 {
-	REQUEST(QNetCameraFrame, QImage),
-	REQUEST(QNetSoundwave, QByteArray),
+	REQUESTWITHOUTDATA(QNetClientIdentifier),
+	REQUESTWITHDATA(QNetCameraFrame, QImage),
+	REQUESTWITHDATA(QNetSoundwave, QByteArray),
 };
 
-#define CALLBACK(Header, Data, Event) \
-	{ Header::Type, [](QNetClient* client, Request* request) { emit client->Event(static_cast<TRequest<Header, Data>*>(request)->data); } }
+#define CALLBACKWITHOUTDATA(Header, Event) \
+	{ Header::Type, [](QNetClient* client, Request* request) { emit client->Event(static_cast<TRequest<Header>*>(request)->header); } }
+
+#define CALLBACKWITHDATA(Header, Data, Event) \
+	{ Header::Type, [](QNetClient* client, Request* request) { emit client->Event(static_cast<TRequestWithData<Header, Data>*>(request)->header, static_cast<TRequestWithData<Header, Data>*>(request)->data); } }
 
 QMap<quint32, std::function<void(QNetClient* , Request*)>> RequestsCallbacks =
 {
-	CALLBACK(QNetCameraFrame, QImage, CameraFrameReceived),
-	CALLBACK(QNetSoundwave, QByteArray, MicrophoneSamplesReceived),
+	CALLBACKWITHOUTDATA(QNetClientIdentifier, ClientIdentifierReceived),
+	CALLBACKWITHDATA(QNetCameraFrame, QImage, CameraFrameReceived),
+	CALLBACKWITHDATA(QNetSoundwave, QByteArray, MicrophoneSamplesReceived),
 };
 
 QNetClient::QNetClient()
@@ -140,12 +147,19 @@ void QNetClient::InterpretControlBytes()
 		if (!stream.commitTransaction())
 			return;
 
-		// only if we succeed, remove data from the incoming buffer
-		//m_controlBuffer.remove(0, dataSize);
-		m_pendingRequests.push(std::move(request));
+		if (request->HasData())
+		{
+			// only if we succeed, remove data from the incoming buffer
+			//m_controlBuffer.remove(0, dataSize);
+			m_pendingRequests.push(std::move(request));
 
-		// Try interpreting data in case we already have enough in the buffer
-		InterpretDataBytes();
+			// Try interpreting data in case we already have enough in the buffer
+			InterpretDataBytes();
+		}
+		else
+		{
+			InvokeCallback(request);
+		}
 	}
 }
 
@@ -176,8 +190,13 @@ void QNetClient::InterpretDataBytes()
 		if (!stream.commitTransaction())
 			return;
 
-		RequestsCallbacks[request->GetType()](this, request.get());
+		InvokeCallback(request);
 
 		m_pendingRequests.pop();
 	}
+}
+
+void QNetClient::InvokeCallback(std::unique_ptr<Request>& request)
+{
+	RequestsCallbacks[request->GetType()](this, request.get());
 }
