@@ -10,9 +10,10 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 
 	connect(&m_clientsServer, &QNetServer::ClientConnected, [this](QNetClient* client) {
 		m_clientIds[client].id = m_nextClientId++;
-		connect(client, &QNetClient::ClientIdentifierReceived, [this, client](QNetClientIdentifier identifier) {
-			m_clientIds[client].name = identifier.name;
-			qDebug() << m_clientIds[client].name << " (" << m_clientIds[client].id << ") connected.";
+		connect(client, &QNetClient::ClientIdentifierReceived, [this, client](QNetClientIdentifier header) {
+			header.id = m_clientIds[client].id;
+			m_clientIds[client].name = header.name;
+			OnClientIdentifierReceived(header);
 		});
 		connect(client, &QNetClient::CameraFrameReceived, [this, client](QNetCameraFrame header, QImage image) {
 			header.id = m_clientIds[client].id;
@@ -23,6 +24,23 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 			OnMicrophoneSampleReceived(header, samples);
 		});
 	});
+
+	connect(&m_directorsServer, &QNetServer::ClientConnected, [this](QNetClient* director) {
+		// Send all connected clients to director
+		for (auto& client : m_clientIds)
+		{
+			QNetClientIdentifier header;
+			header.id = client.id;
+			header.name = client.name;
+			director->Send(TRequest<QNetClientIdentifier>(header));
+		}
+	});
+}
+
+void Server::OnClientIdentifierReceived(const QNetClientIdentifier& header)
+{
+	qDebug() << header.name << " (" << header.id << ") connected.";
+	m_directorsServer.Broadcast(TRequest<QNetClientIdentifier>(header));
 }
 
 void Server::OnCameraFrameReceived(const QNetCameraFrame& header, const QImage& image)

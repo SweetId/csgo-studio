@@ -12,6 +12,7 @@ public:
 	Server(quint16 clientsPort, quint16 directorPort);
 
 protected slots:
+	void OnClientIdentifierReceived(const QNetClientIdentifier& header);
 	void OnCameraFrameReceived(const QNetCameraFrame& header, const QImage& image);
 	void OnMicrophoneSampleReceived(const QNetSoundwave& header, const QByteArray& samples);
 
