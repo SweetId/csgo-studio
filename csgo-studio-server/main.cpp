@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 	qint16 clientsPort = 37016;
 	if (parser.isSet(clientsPortOption))
 		clientsPort = parser.value(clientsPortOption).toInt();
-	qint16 directorPort = 37018;
+	qint16 directorPort = 37026;
 	if (parser.isSet(directorPortOption))
 		directorPort = parser.value(directorPortOption).toInt();
 
