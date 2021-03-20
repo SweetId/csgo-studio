@@ -35,6 +35,15 @@ project "csgo-studio-common"
 	targetdir "../Binaries"
 	targetname "csgo-studio-common"
 
+	qt.enable()
+	qtpath(qt_path)
+	qtmodules { "core", "gui", "multimedia", "network" }
+	qtprefix "QT5"
+
+	configuration { "Debug" }
+		qtsuffix "d"
+	configuration { }
+
 	files {
 		"../csgo-studio-common/**.h",
 		"../csgo-studio-common/**.cpp"
@@ -74,7 +83,7 @@ project "csgo-studio-player"
 
 	qt.enable()
 	qtpath(qt_path)
-	qtmodules { "core", "gui", "widgets", "multimedia", "multimediawidgets" }
+	qtmodules { "core", "gui", "widgets", "multimedia", "multimediawidgets", "network" }
 	qtprefix "QT5"
 
 	configuration { "Debug" }
@@ -119,6 +128,35 @@ project "csgo-studio-gui"
 		"../csgo-studio-gui/**.h",
 		"../csgo-studio-gui/**.cpp",
 		"../csgo-studio-gui/**.qrc"
+	}
+
+	links {
+		"csgo-studio-common"
+	}
+
+project "csgo-studio-server"
+	kind "ConsoleApp"
+	language "C++"
+	cppdialect "C++17"
+	targetdir "../Binaries"
+	targetname "csgo-studio-server"
+
+	qt.enable()
+	qtpath(qt_path)
+	qtmodules { "core", "gui", "multimedia", "network" }
+	qtprefix "QT5"
+
+	configuration { "Debug" }
+		qtsuffix "d"
+	configuration { }
+
+	includedirs {
+		"../csgo-studio-common/"
+	}
+
+	files {
+		"../csgo-studio-server/**.h",
+		"../csgo-studio-server/**.cpp"
 	}
 
 	links {
