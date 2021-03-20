@@ -174,7 +174,7 @@ void MainWindow::OnCameraOff()
 
 void MainWindow::OnCameraFrame(int id, const QVideoFrame& frame)
 {
-	QImage image = frame.image().scaled(640, 480);
+	/*QImage image = frame.image().scaled(640, 480);
 	
 	if (m_connection.IsConnected())
 	{
@@ -183,7 +183,7 @@ void MainWindow::OnCameraFrame(int id, const QVideoFrame& frame)
 		header.size = image.sizeInBytes();
 		header.timestamp = QDateTime::currentDateTime().toMSecsSinceEpoch();
 		m_connection.Send(TRequestWithData<QNetCameraFrame, QImage>(header, image));
-	}
+	}*/
 	m_videoCapture->capture();
 }
 
