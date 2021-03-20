@@ -2,8 +2,11 @@
 
 #include "qnet_data.h"
 
+#include <QDateTime>
+
 Server::Server(quint16 clientsPort, quint16 directorPort)
-	: m_nextClientId(0)
+	: m_startingTimestamp(QDateTime::currentMSecsSinceEpoch())
+	, m_nextClientId(0)
 {
 	m_clientsServer.Start(QHostAddress::AnyIPv4, clientsPort);
 	m_directorsServer.Start(QHostAddress::AnyIPv4, directorPort);
@@ -17,10 +20,12 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 		});
 		connect(client, &QNetClient::CameraFrameReceived, [this, client](QNetCameraFrame header, QImage image) {
 			header.id = m_clientIds[client].id;
+			header.timestamp -= m_startingTimestamp;
 			OnCameraFrameReceived(header, image);
 		});
 		connect(client, &QNetClient::MicrophoneSamplesReceived, [this, client](QNetSoundwave header, QByteArray samples) {
 			header.id = m_clientIds[client].id;
+			header.timestamp -= m_startingTimestamp;
 			OnMicrophoneSampleReceived(header, samples);
 		});
 	});
