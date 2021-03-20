@@ -217,7 +217,7 @@ void MainWindow::OnMicrophoneSample(QAudioBuffer buffer)
 		QNetSoundwave header;
 		header.id = 0;
 		header.size = stereoSound.size();
-		header.timestamp = QDateTime::currentDateTime().toMSecsSinceEpoch();
+		header.timestamp = QDateTime::currentMSecsSinceEpoch();
 		m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, stereoSound));
 	}
 }
