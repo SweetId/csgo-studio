@@ -4,5 +4,7 @@
     <file>icons/camera_on.png</file>
     <file>icons/microphone_off.png</file>
     <file>icons/microphone_on.png</file>
+    <file>icons/network_off.png</file>
+    <file>icons/network_on.png</file>
 </qresource>
 </RCC>

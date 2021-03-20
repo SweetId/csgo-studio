@@ -1,27 +1,72 @@
 #include "player_mainwindow.h"
 
 #include <QAudioFormat>
+#include <QAudioProbe>
 #include <QAudioRecorder>
 #include <QCamera>
 #include <QCameraImageCapture>
 #include <QCameraInfo>
-#include <QDebug>
 #include <QComboBox>
+#include <QDebug>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
-#include <QSlider>
 #include <QToolbar>
 #include <QToolButton>
 #include <QCameraViewfinder>
 
+#include "qnet_data.h"
+
 MainWindow::MainWindow()
 	: m_camera(nullptr)
 	, m_microphone(new QAudioRecorder(this))
+	, m_bMicrophoneMuted(true)
+	, m_mindB(0.f)
 {
 	QToolBar* toolbar = new QToolBar(this);
+	toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
+	toolbar->setAllowedAreas(Qt::ToolBarArea::AllToolBarAreas);
 	addToolBar(Qt::ToolBarArea::TopToolBarArea, toolbar);
 
+	// Network connection
+	toolbar->addWidget(new QLabel("Nickname:", toolbar));
+	QLineEdit* nicknameText = new QLineEdit(toolbar);
+	toolbar->addWidget(nicknameText);
+	toolbar->addWidget(new QLabel("Server IP:", toolbar));
+	QLineEdit* serveripText = new QLineEdit(toolbar);
+	toolbar->addWidget(serveripText);
+
+	QAction* networkOnAction = new QAction(QIcon(":/icons/network_off.png"), tr("Connect to server"), this);
+	QAction* networkOffAction = new QAction(QIcon(":/icons/network_on.png"), tr("Disconnect from server"), this);
+	QToolButton* networkButton = new QToolButton(toolbar);
+	networkButton->setDefaultAction(networkOnAction);
+	toolbar->addWidget(networkButton);
+	connect(this, &MainWindow::ConnectingToServer, [networkButton, nicknameText, serveripText]() {
+		networkButton->setEnabled(false);
+		nicknameText->setEnabled(false); 
+		serveripText->setEnabled(false);
+	});
+
+	connect(networkOnAction, &QAction::triggered, [this, nicknameText, serveripText](bool bTriggered) { ConnectToServer(serveripText->text(), nicknameText->text()); });
+	connect(networkOffAction, &QAction::triggered, this, &MainWindow::DisconnectFromServer);
+
+	connect(this, &MainWindow::ConnectedToServer, [networkButton, networkOffAction]() {
+		networkButton->setDefaultAction(networkOffAction);
+		networkButton->setEnabled(true);
+	});
+	connect(this, &MainWindow::DisconnectedFromServer, [networkButton, networkOnAction, nicknameText, serveripText]() {
+		networkButton->setDefaultAction(networkOnAction);
+		nicknameText->setEnabled(true);
+		serveripText->setEnabled(true);
+	});
+
+	connect(&m_connection, &QNetClient::ConnectedToServer, this, &MainWindow::ConnectedToServer);
+	connect(&m_connection, &QNetClient::DisconnectedFromServer, this, &MainWindow::DisconnectedFromServer);
+	connect(&m_connection, &QNetClient::ErrorOccured, this, &MainWindow::OnSocketErrorOccurred);
+
 	// Microphone list and button
+	toolbar->addSeparator();
 	QComboBox* microphonesList = new QComboBox(toolbar);
 	{
 		QSet<QString> items;
@@ -30,6 +75,9 @@ MainWindow::MainWindow()
 		microphonesList->addItems(items.values());
 	}
 	toolbar->addWidget(microphonesList);
+	connect(microphonesList, &QComboBox::currentTextChanged, [this](const QString& mic) {
+		m_microphone->setAudioInput(mic);
+	});
 	QAction* microphoneOnAction = new QAction(QIcon(":/icons/microphone_off.png"), tr("Turn mic on"), this);
 	QAction* microphoneOffAction = new QAction(QIcon(":/icons/microphone_on.png"), tr("Turn mic off"), this);
 	QToolButton* microphoneButton = new QToolButton(toolbar);
@@ -39,13 +87,17 @@ MainWindow::MainWindow()
 	connect(microphoneOnAction, &QAction::triggered, [microphoneButton, microphoneOffAction, microphonesList]() { microphoneButton->setDefaultAction(microphoneOffAction); microphonesList->setEnabled(false); });
 	connect(microphoneOffAction, &QAction::triggered, [microphoneButton, microphoneOnAction, microphonesList]() { microphoneButton->setDefaultAction(microphoneOnAction); microphonesList->setEnabled(false); });
 
-	connect(microphoneOnAction, &QAction::triggered, [this, microphonesList]() { OnMicrophoneOn(microphonesList->currentText()); });
-	connect(microphoneOffAction, &QAction::triggered, this, &MainWindow::OnMicrophoneOff);
+	connect(microphoneOnAction, &QAction::triggered, [this]() { m_bMicrophoneMuted = false; });
+	connect(microphoneOffAction, &QAction::triggered, [this]() { m_bMicrophoneMuted = true; });
 
 	// Camera list and button
+	toolbar->addSeparator();
 	QComboBox* cameraList = new QComboBox(toolbar);
 	for (const QCameraInfo& camera : QCameraInfo::availableCameras())
+	{
+		qDebug() << camera.description();
 		cameraList->addItem(camera.description());
+	}
 	toolbar->addWidget(cameraList);
 
 	QAction* cameraOnAction = new QAction(QIcon(":/icons/camera_off.png"), tr("Turn cam on"), this);
@@ -63,9 +115,26 @@ MainWindow::MainWindow()
 	m_cameraWidget = new QCameraViewfinder(this);
 	setCentralWidget(m_cameraWidget);
 	m_cameraWidget->setFixedSize(640, 480);
+
+
+	QAudioEncoderSettings settings;
+	settings.setCodec("audio/pcm");
+	settings.setChannelCount(2);
+	settings.setSampleRate(48000);
+	settings.setEncodingMode(QMultimedia::ConstantBitRateEncoding);
+	settings.setQuality(QMultimedia::NormalQuality);
+	m_microphone->setEncodingSettings(settings);
+	m_microphone->record();
+
+	m_soundCapture = new QAudioProbe(this);
+	m_soundCapture->setSource(m_microphone);
+	connect(m_soundCapture, &QAudioProbe::audioBufferProbed, this, &MainWindow::OnMicrophoneSample);
 }
 
-MainWindow::~MainWindow() {}
+MainWindow::~MainWindow()
+{
+	m_microphone->stop();
+}
 
 void MainWindow::OnCameraOn(QString camera)
 {
@@ -76,6 +145,18 @@ void MainWindow::OnCameraOn(QString camera)
 			m_camera = new QCamera(desc, this);
 			m_camera->setViewfinder(m_cameraWidget);
 			m_camera->start();
+
+			m_videoCapture = new QCameraImageCapture(m_camera, this);
+			m_videoCapture->setCaptureDestination(QCameraImageCapture::CaptureDestination::CaptureToBuffer);
+			//m_capture->setBufferFormat(QVideoFrame::PixelFormat::Format_BGR24);
+			
+			auto res = m_videoCapture->supportedResolutions();
+			auto codecs = m_videoCapture->supportedImageCodecs();
+			auto formats = m_videoCapture->supportedBufferFormats();
+			//m_capture->setEncodingSettings(settings);
+			
+			m_videoCapture->capture();
+			connect(m_videoCapture, &QCameraImageCapture::imageAvailable, this, &MainWindow::OnCameraFrame);
 			break;
 		}
 	}
@@ -87,20 +168,96 @@ void MainWindow::OnCameraOff()
 		m_camera->stop();
 	delete m_camera;
 }
-void MainWindow::OnMicrophoneOn(QString microphone)
+
+void MainWindow::OnCameraFrame(int id, const QVideoFrame& frame)
 {
-	/*
-	QAudioEncoderSettings format;
-	// Set up the format, eg.
-	format.setSampleRate(48000);
-	format.setChannelCount(2);
-	format.setCodec("audio/pcm");
-	m_microphone->setEncodingSettings(format);*/
-	m_microphone->setAudioInput(microphone);
+	QImage image = frame.image().scaled(640, 480);
+	
+	if (m_connection.IsConnected())
+	{
+		QNetCameraFrame header;
+		header.id = 0;
+		header.size = image.sizeInBytes();
+		m_connection.Send(TRequest<QNetCameraFrame, QImage>(header, image));
+	}
+	m_videoCapture->capture();
 }
 
-void MainWindow::OnMicrophoneOff()
+float ConvertToStereo(const QAudioBuffer& inBuffer, QByteArray& outBuffer)
 {
-	delete m_microphone;
-	m_microphone = nullptr;
+	int channels = inBuffer.format().channelCount();
+	int samples = inBuffer.sampleCount();
+
+	outBuffer.reserve(2 * samples);
+
+	float maxVal = 0;
+	const QAudioBuffer::S16U* frames = inBuffer.data<QAudioBuffer::S16U>();
+	for (qint32 i = 0; i < samples; ++i)
+	{
+		outBuffer.append(frames[i].left);
+		outBuffer.append(frames[i].right);
+		maxVal = qMax(maxVal, qAbs(frames[i].left / 32768.f - 1.f));
+		maxVal = qMax(maxVal, qAbs(frames[i].right / 32768.f - 1.f));
+	}
+
+	return 20 * std::log10(maxVal);
+}
+
+void MainWindow::OnMicrophoneSample(QAudioBuffer buffer)
+{
+	QByteArray stereoSound;
+	float volumedB = ConvertToStereo(buffer, stereoSound);
+
+	if (!m_bMicrophoneMuted && m_connection.IsConnected() && PassNoiseGame(volumedB))
+	{
+		QNetSoundwave header;
+		header.id = 0;
+		header.size = stereoSound.size();
+		m_connection.Send(TRequest<QNetSoundwave, QByteArray>(header, stereoSound));
+	}
+}
+
+void MainWindow::ConnectToServer(QString serverip, QString nickname)
+{
+	if (serverip.trimmed().isEmpty())
+	{
+		QMessageBox::warning(this, "Error", "Please enter valid ip");
+		return;
+	}
+	if (nickname.trimmed().isEmpty())
+	{
+		QMessageBox::warning(this, "Error", "Please enter a nickname before connecting");
+		return;
+	}
+
+	QStringList server = serverip.split(':');
+	QString ip;
+	qint16 port = (quint16)37016;
+	if (server.size() == 1)
+	{
+		ip = server[0];
+	}
+	else if (server.size() == 2)
+	{
+		ip = server[0];
+		port = server[1].toInt();
+	}
+
+	m_connection.Start(QHostAddress(ip), port);
+}
+void MainWindow::DisconnectFromServer()
+{
+	m_connection.Stop();
+}
+
+void MainWindow::OnSocketErrorOccurred(QString message)
+{
+	QMessageBox::critical(this, "Network Error", message);
+	qDebug() << message;
+	emit DisconnectFromServer();
+}
+
+bool MainWindow::PassNoiseGame(float volumedB)
+{
+	return volumedB >= m_mindB;
 }
