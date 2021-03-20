@@ -12,7 +12,6 @@ struct QNetClientIdentifier
 	quint32 id;
 	QString name;
 };
-
 struct QNetSoundwave
 {
 	static const quint32 Type = 2;
@@ -27,6 +26,12 @@ struct QNetCameraFrame
 	static const bool HasData = true;
 	quint32 id;
 	quint32 size;
+	quint64 timestamp;
+};
+struct QNetServerSession
+{
+	static const quint32 Type = 4;
+	static const bool HasData = false;
 	quint64 timestamp;
 };
 
@@ -60,5 +65,16 @@ inline QDataStream& operator>>(QDataStream& stream, QNetCameraFrame& header)
 inline QDataStream& operator<<(QDataStream& stream, const QNetCameraFrame& header)
 {
 	stream << header.id << header.size << header.timestamp;
+	return stream;
+}
+
+inline QDataStream& operator>>(QDataStream& stream, QNetServerSession& header)
+{
+	stream >> header.timestamp;
+	return stream;
+}
+inline QDataStream& operator<<(QDataStream& stream, const QNetServerSession& header)
+{
+	stream << header.timestamp;
 	return stream;
 }

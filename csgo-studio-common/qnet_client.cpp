@@ -17,6 +17,7 @@ QMap<quint32, std::function<Request* ()>> RequestsFactory =
 	REQUESTWITHOUTDATA(QNetClientIdentifier),
 	REQUESTWITHDATA(QNetCameraFrame, QImage),
 	REQUESTWITHDATA(QNetSoundwave, QByteArray),
+	REQUESTWITHOUTDATA(QNetServerSession),
 };
 
 #define CALLBACKWITHOUTDATA(Header, Event) \
@@ -30,6 +31,7 @@ QMap<quint32, std::function<void(QNetClient* , Request*)>> RequestsCallbacks =
 	CALLBACKWITHOUTDATA(QNetClientIdentifier, ClientIdentifierReceived),
 	CALLBACKWITHDATA(QNetCameraFrame, QImage, CameraFrameReceived),
 	CALLBACKWITHDATA(QNetSoundwave, QByteArray, MicrophoneSamplesReceived),
+	CALLBACKWITHOUTDATA(QNetServerSession, ServerSessionReceived),
 };
 
 QNetClient::QNetClient()

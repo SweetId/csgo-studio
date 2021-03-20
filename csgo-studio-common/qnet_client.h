@@ -108,6 +108,7 @@ signals:
 	void ClientIdentifierReceived(QNetClientIdentifier identifier);
 	void CameraFrameReceived(QNetCameraFrame header, QImage image);
 	void MicrophoneSamplesReceived(QNetSoundwave header, QByteArray sound);
+	void ServerSessionReceived(QNetServerSession header);
 
 protected slots:
 	void OnControlConnectionEstablished();
