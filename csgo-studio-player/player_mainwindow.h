@@ -21,10 +21,10 @@ signals:
     void DisconnectedFromServer();
 
 public slots:
-    void OnCameraOn(QString camera);
+    void OnCameraOn(const QString& camera);
     void OnCameraOff();
    
-    void ConnectToServer(QString serverip, QString nickname);
+    void ConnectToServer(const QString& serverip, const QString& nickname);
     void DisconnectFromServer();
 
 private slots:
@@ -34,6 +34,7 @@ private slots:
     void OnSocketErrorOccurred(QString message);
 
 private:
+    void SendIdentifier(const QString& nickname);
     bool PassNoiseGame(float volumedB);
 
     class QAudioRecorder* m_microphone;

@@ -1,7 +1,5 @@
 #include "server.h"
 
-#include <QDateTime>
-
 #include "qnet_data.h"
 
 Server::Server(quint16 clientsPort, quint16 directorPort)
@@ -14,6 +12,7 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 		m_clientIds[client].id = m_nextClientId++;
 		connect(client, &QNetClient::ClientIdentifierReceived, [this, client](QNetClientIdentifier identifier) {
 			m_clientIds[client].name = identifier.name;
+			qDebug() << m_clientIds[client].name << " (" << m_clientIds[client].id << ") connected.";
 		});
 		connect(client, &QNetClient::CameraFrameReceived, [this, client](QNetCameraFrame header, QImage image) {
 			header.id = m_clientIds[client].id;
@@ -28,10 +27,12 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 
 void Server::OnCameraFrameReceived(const QNetCameraFrame& header, const QImage& image)
 {
+	qDebug() << image.width() << "x" << image.height();
 	m_directorsServer.Broadcast(TRequestWithData<QNetCameraFrame, QImage>(header, image));
 }
 
 void Server::OnMicrophoneSampleReceived(const QNetSoundwave& header, const QByteArray& samples)
 {
+	qDebug() << samples.size();
 	m_directorsServer.Broadcast(TRequestWithData<QNetSoundwave, QByteArray>(header, samples));
 }

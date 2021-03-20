@@ -1,5 +1,6 @@
 #include "qnet_client.h"
 
+#include <QBuffer>
 #include <QHostAddress>
 #include <QImage>
 
@@ -130,7 +131,9 @@ void QNetClient::InterpretControlBytes()
 	// Interpret buffer as control headers
 	while (!m_controlBuffer.isEmpty())
 	{
-		QDataStream stream(&m_controlBuffer, QIODevice::ReadOnly);
+		QBuffer buffer(&m_controlBuffer);
+		buffer.open(QIODevice::ReadOnly);
+		QDataStream stream(&buffer);
 		stream.startTransaction();
 
 		// Get type from stream
@@ -147,10 +150,11 @@ void QNetClient::InterpretControlBytes()
 		if (!stream.commitTransaction())
 			return;
 
+		// only if we succeed, remove data from the incoming buffer
+		m_controlBuffer.remove(0, buffer.pos());
+
 		if (request->HasData())
 		{
-			// only if we succeed, remove data from the incoming buffer
-			//m_controlBuffer.remove(0, dataSize);
 			m_pendingRequests.push(std::move(request));
 
 			// Try interpreting data in case we already have enough in the buffer

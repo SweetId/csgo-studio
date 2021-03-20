@@ -7,6 +7,7 @@
 #include <QCameraImageCapture>
 #include <QCameraInfo>
 #include <QComboBox>
+#include <QDateTime>
 #include <QDebug>
 #include <QLabel>
 #include <QLineEdit>
@@ -59,6 +60,9 @@ MainWindow::MainWindow()
 		networkButton->setDefaultAction(networkOnAction);
 		nicknameText->setEnabled(true);
 		serveripText->setEnabled(true);
+	});
+	connect(this, &MainWindow::ConnectedToServer, [this, nicknameText]() {
+		SendIdentifier(nicknameText->text());
 	});
 
 	connect(&m_connection, &QNetClient::ConnectedToServer, this, &MainWindow::ConnectedToServer);
@@ -121,9 +125,8 @@ MainWindow::MainWindow()
 	settings.setCodec("audio/pcm");
 	settings.setChannelCount(2);
 	settings.setSampleRate(48000);
-	settings.setEncodingMode(QMultimedia::ConstantBitRateEncoding);
-	settings.setQuality(QMultimedia::NormalQuality);
 	m_microphone->setEncodingSettings(settings);
+	m_microphone->setAudioInput(m_microphone->defaultAudioInput());
 	m_microphone->record();
 
 	m_soundCapture = new QAudioProbe(this);
@@ -136,7 +139,7 @@ MainWindow::~MainWindow()
 	m_microphone->stop();
 }
 
-void MainWindow::OnCameraOn(QString camera)
+void MainWindow::OnCameraOn(const QString& camera)
 {
 	for (const QCameraInfo& desc : QCameraInfo::availableCameras())
 	{
@@ -178,6 +181,7 @@ void MainWindow::OnCameraFrame(int id, const QVideoFrame& frame)
 		QNetCameraFrame header;
 		header.id = 0;
 		header.size = image.sizeInBytes();
+		header.timestamp = QDateTime::currentDateTime().toMSecsSinceEpoch();
 		m_connection.Send(TRequestWithData<QNetCameraFrame, QImage>(header, image));
 	}
 	m_videoCapture->capture();
@@ -213,11 +217,12 @@ void MainWindow::OnMicrophoneSample(QAudioBuffer buffer)
 		QNetSoundwave header;
 		header.id = 0;
 		header.size = stereoSound.size();
+		header.timestamp = QDateTime::currentDateTime().toMSecsSinceEpoch();
 		m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, stereoSound));
 	}
 }
 
-void MainWindow::ConnectToServer(QString serverip, QString nickname)
+void MainWindow::ConnectToServer(const QString& serverip, const QString& nickname)
 {
 	if (serverip.trimmed().isEmpty())
 	{
@@ -255,6 +260,13 @@ void MainWindow::OnSocketErrorOccurred(QString message)
 	QMessageBox::critical(this, "Network Error", message);
 	qDebug() << message;
 	emit DisconnectFromServer();
+}
+
+void MainWindow::SendIdentifier(const QString& nickname)
+{
+	QNetClientIdentifier header;
+	header.name = nickname;
+	m_connection.Send(TRequest<QNetClientIdentifier>(header));
 }
 
 bool MainWindow::PassNoiseGame(float volumedB)
