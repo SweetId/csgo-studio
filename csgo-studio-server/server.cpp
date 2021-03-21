@@ -31,6 +31,12 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 	});
 
 	connect(&m_directorsServer, &QNetServer::ClientConnected, [this](QNetClient* director) {
+		{
+			QNetServerSession header;
+			header.timestamp = m_startingTimestamp;
+			director->Send(TRequest<QNetServerSession>(header));
+		}
+
 		// Send all connected clients to director
 		for (auto& client : m_clientIds)
 		{

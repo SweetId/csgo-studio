@@ -20,7 +20,7 @@ protected:
 	QNetServer m_clientsServer;
 	QNetServer m_directorsServer;
 
-	quint64 m_startingTimestamp;
+	qint64 m_startingTimestamp;
 
 	quint32 m_nextClientId;
 
