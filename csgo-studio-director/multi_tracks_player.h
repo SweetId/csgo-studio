@@ -3,6 +3,7 @@
 #include <QObject>
 
 #include "multi_track.h"
+#include "qclock.h"
 
 #include <QByteArray>
 #include <QSet>
@@ -16,12 +17,12 @@ public:
 	QMultiTrackPlayerWorker(class QMultiTracksPlayer* player);
 
 	void run() override;
-	qint64 GetCurrentTimecode() const { return m_currentTimecode; }
+	qint64 GetCurrentTimecode() const { return m_clock.Get(); }
 
 public slots:
 	void Play();
 	void Pause();
-	void Restart();
+	void Resume();
 
 	void JumpToTimecode(qint64 timecode);
 
@@ -31,9 +32,7 @@ private:
 	class QMultiTracksPlayer* m_player;
 	class QIODevice* m_audioDevice;
 
-	qint64 m_currentTimecode;
-	qint64 m_playTimestamp;
-	bool m_bPaused;
+	QClock m_clock;
 };
 
 class QMultiTracksPlayer : public QObject
@@ -49,7 +48,7 @@ public:
 
 	void Play();
 	void Pause();
-	void Restart();
+	void Resume();
 
 	void SetAudioDevice(class QIODevice* audioDevice);
 
@@ -59,7 +58,7 @@ public:
 signals:
 	void OnPlay();
 	void OnPause();
-	void OnRestart();
+	void OnResume();
 	void OnAudioDeviceChanged(class QIODevice*);
 	void OnJumpToTimecode(qint64 timecode);
 

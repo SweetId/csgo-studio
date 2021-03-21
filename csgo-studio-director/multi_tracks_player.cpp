@@ -7,23 +7,23 @@ QMultiTrackPlayerWorker::QMultiTrackPlayerWorker(class QMultiTracksPlayer* playe
 	: QThread(player)
 	, m_player(player)
 	, m_audioDevice(nullptr)
-	, m_currentTimecode(0)
-	, m_playTimestamp(QDateTime::currentMSecsSinceEpoch())
-	, m_bPaused(true)
 {}
 
 void QMultiTrackPlayerWorker::run()
 {
+	m_clock.Start();
+	m_clock.Pause();
+	qint64 lastTimecode = m_clock.Get();
+
 	while (!isInterruptionRequested())
 	{
-		while (m_bPaused)
+		if (m_clock.IsPaused())
 		{
 			QThread::msleep(100);
 			continue;
 		}
 
-		qint64 lastTimecode = m_currentTimecode;
-		m_currentTimecode = QDateTime::currentMSecsSinceEpoch() - m_playTimestamp;
+		qint64 currentTimecode = m_clock.Get();
 
 		for (auto* multitrack : m_player->m_tracks)
 		{
@@ -33,7 +33,7 @@ void QMultiTrackPlayerWorker::run()
 				if (nullptr != audio && !audio->IsMuted())
 				{
 					QVector<QByteArray> samples;
-					audio->GetBetween(lastTimecode, m_currentTimecode, samples);
+					audio->GetBetween(lastTimecode, currentTimecode, samples);
 
 					QByteArray data;
 					for (QByteArray& sample : samples)
@@ -44,26 +44,28 @@ void QMultiTrackPlayerWorker::run()
 				}
 			}
 		}
+		lastTimecode = currentTimecode;
 	}
 }
 
 void QMultiTrackPlayerWorker::Play()
 {
-	m_bPaused = false;
-	m_playTimestamp = QDateTime::currentMSecsSinceEpoch();
+	m_clock.Start();
 }
 
-void QMultiTrackPlayerWorker::Pause() { m_bPaused = true; }
-
-void QMultiTrackPlayerWorker::Restart()
+void QMultiTrackPlayerWorker::Pause()
 {
-	Play();
-	JumpToTimecode(0);
+	m_clock.Pause();
+}
+
+void QMultiTrackPlayerWorker::Resume()
+{
+	m_clock.Resume();
 }
 
 void QMultiTrackPlayerWorker::JumpToTimecode(qint64 timecode)
 {
-	m_currentTimecode = QDateTime::currentMSecsSinceEpoch() - timecode;
+	m_clock.SetElapsed(timecode);
 }
 
 void QMultiTrackPlayerWorker::SetAudioDevice(QIODevice* audioDevice) { m_audioDevice = audioDevice; }
@@ -74,7 +76,7 @@ QMultiTracksPlayer::QMultiTracksPlayer(QObject* parent)
 {
 	connect(this, &QMultiTracksPlayer::OnPlay, m_playerThread, &QMultiTrackPlayerWorker::Play);
 	connect(this, &QMultiTracksPlayer::OnPause, m_playerThread, &QMultiTrackPlayerWorker::Pause);
-	connect(this, &QMultiTracksPlayer::OnRestart, m_playerThread, &QMultiTrackPlayerWorker::Restart);
+	connect(this, &QMultiTracksPlayer::OnResume, m_playerThread, &QMultiTrackPlayerWorker::Resume);
 	connect(this, &QMultiTracksPlayer::OnAudioDeviceChanged, m_playerThread, &QMultiTrackPlayerWorker::SetAudioDevice);
 	connect(this, &QMultiTracksPlayer::OnJumpToTimecode, m_playerThread, &QMultiTrackPlayerWorker::JumpToTimecode);
 	
@@ -99,9 +101,9 @@ void QMultiTracksPlayer::Pause()
 	emit OnPause();
 }
 
-void QMultiTracksPlayer::Restart()
+void QMultiTracksPlayer::Resume()
 {
-	emit OnRestart();
+	emit OnResume();
 }
 
 void QMultiTracksPlayer::SetAudioDevice(class QIODevice* audioDevice)

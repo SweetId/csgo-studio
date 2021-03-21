@@ -95,7 +95,7 @@ MainWindow::MainWindow()
 
 	connect(playAction, &QAction::triggered, [playButton, pauseAction]() { playButton->setDefaultAction(pauseAction); });
 	connect(pauseAction, &QAction::triggered, [playButton, playAction]() { playButton->setDefaultAction(playAction); });
-	connect(playAction, &QAction::triggered, [this]() { m_player->Play(); });
+	connect(playAction, &QAction::triggered, [this]() { m_player->Resume(); });
 	connect(pauseAction, &QAction::triggered, [this]() { m_player->Pause(); });
 
 
@@ -123,7 +123,9 @@ MainWindow::MainWindow()
 		relativeTimeLabel->setText(QDateTime::fromMSecsSinceEpoch(playerTime).toString("HH:mm:ss") + "/" + QDateTime::fromMSecsSinceEpoch(currentTime - initialTime).toString("HH:mm:ss"));
 	};
 
-	connect(this, &MainWindow::InitialTimestampChanged, [UpdateTimeLabels](quint64) { UpdateTimeLabels(); });
+	connect(this, &MainWindow::InitialTimestampChanged, [this, UpdateTimeLabels](quint64) {
+		UpdateTimeLabels();
+	});
 	QTimer* timeUpdater = new QTimer(this);
 	connect(timeUpdater, &QTimer::timeout, UpdateTimeLabels);
 	timeUpdater->start(1000);
