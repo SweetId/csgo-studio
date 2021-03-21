@@ -1,18 +1,33 @@
 #include "director_mainwindow.h"
 
-#include "track.h"
+#include "multi_track.h"
+#include "multi_tracks_player.h"
 
+#include <QAudioFormat>
+#include <QAudioOutput>
+#include <QDateTime>
 #include <QHBoxLayout>
 #include <QHostAddress>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QVBoxLayout>
+
+namespace
+{
+	template <typename T>
+	T Lerp(T a, T b, float t) { return a + t * (b - a); }
+}
 
 MainWindow::MainWindow()
-	: m_serverTree(nullptr)
+	: m_player(new QMultiTracksPlayer(this))
+	, m_serverTree(nullptr)
+	, m_initialTimestamp(0)
 {
 	QToolBar* toolbar = new QToolBar(this);
 	toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
@@ -47,7 +62,7 @@ MainWindow::MainWindow()
 		});
 
 	QWidget* central = new QWidget(this);
-	QHBoxLayout* centralLayout = new QHBoxLayout(central);
+	QVBoxLayout* centralLayout = new QVBoxLayout(central);
 	central->setLayout(centralLayout);
 	setCentralWidget(central);
 
@@ -71,12 +86,84 @@ MainWindow::MainWindow()
 
 	centralLayout->addWidget(m_serverTree);
 
+	QHBoxLayout* playerControlBar = new QHBoxLayout(this);
+	QToolButton* playButton = new QToolButton(this);
+	QAction* playAction = new QAction(QIcon(":/icons/play.png"), tr("Play"), this);
+	QAction* pauseAction = new QAction(QIcon(":/icons/pause.png"), tr("Pause"), this);
+	playButton->setDefaultAction(playAction);
+	playerControlBar->addWidget(playButton);
+
+	connect(playAction, &QAction::triggered, [playButton, pauseAction]() { playButton->setDefaultAction(pauseAction); });
+	connect(pauseAction, &QAction::triggered, [playButton, playAction]() { playButton->setDefaultAction(playAction); });
+	connect(playAction, &QAction::triggered, [this]() { m_player->Play(); });
+	connect(pauseAction, &QAction::triggered, [this]() { m_player->Pause(); });
+
+
+	QSlider* timeSlider = new QSlider(Qt::Orientation::Horizontal, this);
+	timeSlider->setRange(0, 100);
+	playerControlBar->addWidget(timeSlider);
+
+	connect(timeSlider, &QSlider::valueChanged, [this](int val) {
+		auto lval = ::Lerp(m_initialTimestamp, QDateTime::currentMSecsSinceEpoch(), val / 100.f);
+		m_player->JumpToTimecode(lval - m_initialTimestamp);
+	});
+
+	QVBoxLayout* timingsLayout = new QVBoxLayout(this);
+	QLabel* realTimeLabel = new QLabel("00:00:00/00:00:00", this);
+	QLabel* relativeTimeLabel = new QLabel("00:00:00/00:00:00", this);
+	timingsLayout->addWidget(realTimeLabel);
+	timingsLayout->addWidget(relativeTimeLabel);
+	playerControlBar->addLayout(timingsLayout);
+
+	auto UpdateTimeLabels = [this, realTimeLabel, relativeTimeLabel]() {
+		quint64 initialTime = m_initialTimestamp;
+		quint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+		quint64 playerTime = m_player->GetCurrentTimecode();
+		realTimeLabel->setText(QDateTime::fromMSecsSinceEpoch(initialTime + playerTime).toString("HH:mm:ss") + "/" + QDateTime::fromMSecsSinceEpoch(currentTime).toString("HH:mm:ss"));
+		relativeTimeLabel->setText(QDateTime::fromMSecsSinceEpoch(playerTime).toString("HH:mm:ss") + "/" + QDateTime::fromMSecsSinceEpoch(currentTime - initialTime).toString("HH:mm:ss"));
+	};
+
+	connect(this, &MainWindow::InitialTimestampChanged, [UpdateTimeLabels](quint64) { UpdateTimeLabels(); });
+	QTimer* timeUpdater = new QTimer(this);
+	connect(timeUpdater, &QTimer::timeout, UpdateTimeLabels);
+	timeUpdater->start(1000);
+
+	centralLayout->addLayout(playerControlBar);
+
 	connect(&m_connection, &QNetClient::ConnectedToServer, this, &MainWindow::ConnectedToServer);
 	connect(&m_connection, &QNetClient::DisconnectedFromServer, this, &MainWindow::DisconnectedFromServer);
 	connect(&m_connection, &QNetClient::ErrorOccured, this, &MainWindow::OnSocketErrorOccurred);
 
 	connect(&m_connection, &QNetClient::ClientIdentifierReceived, this, &MainWindow::OnClientIdentifierReceived);
 	connect(&m_connection, &QNetClient::MicrophoneSamplesReceived, this, &MainWindow::OnMicrophoneSamplesReceived);
+	connect(&m_connection, &QNetClient::ServerSessionReceived, this, &MainWindow::OnServerSessionReceived);
+
+	QAudioFormat format;
+	// Set up the format, eg.
+	format.setSampleRate(48000);
+	format.setChannelCount(2);
+	format.setSampleSize(16);
+	format.setCodec("audio/pcm");
+	format.setByteOrder(QAudioFormat::LittleEndian);
+	format.setSampleType(QAudioFormat::UnSignedInt);
+
+	QAudioDeviceInfo info = QAudioDeviceInfo::defaultOutputDevice();
+	if (!info.isFormatSupported(format))
+	{
+		qWarning() << "Using nearest format";
+		format = info.nearestFormat(format);
+		qWarning() << format.sampleRate();
+		qWarning() << format.channelCount();
+		qWarning() << format.sampleSize();
+		qWarning() << format.codec();
+		qWarning() << format.byteOrder();
+		qWarning() << format.sampleType();
+	}
+
+	m_audioOutput = new QAudioOutput(format, this);
+	m_audioDevice = m_audioOutput->start();
+
+	m_player->SetAudioDevice(m_audioDevice);
 }
 
 MainWindow::~MainWindow()
@@ -119,37 +206,47 @@ void MainWindow::OnSocketErrorOccurred(QString message)
 	emit DisconnectFromServer();
 }
 
-void MainWindow::OnClientIdentifierReceived(const QNetClientIdentifier& identifier)
+void MainWindow::OnClientIdentifierReceived(const QNetClientIdentifier& header)
 {
-	auto it = m_tracks.find(identifier.id);
-	if (it == m_tracks.end())
-	{
-		m_tracks[identifier.id] = new QTrack(identifier.id, identifier.name, this);
-		it = m_tracks.find(identifier.id);
-	}
-	else
-	{
-		it.value()->SetName(identifier.name);
-	}
+	QMultiTrack* track = GetOrCreateMultiTrack(header.id);
+	track->SetName(header.name);
 
-	auto items = m_serverTree->findItems(QString::number(it.key()), Qt::MatchExactly | Qt::MatchRecursive, 1);
+	auto items = m_serverTree->findItems(QString::number(track->GetId()), Qt::MatchExactly | Qt::MatchRecursive, 1);
 	if (items.isEmpty())
 	{
 		// insert new client
 		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0, it.value()->GetName());
-		item->setText(1, QString::number(it.key()));
+		item->setText(0, track->GetName());
+		item->setText(1, QString::number(track->GetId()));
 		item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsEnabled);
 		m_serverTree->topLevelItem(0)->addChild(item);
 		m_serverTree->expandAll();
 	}
 	else
 	{
-		items[0]->setText(0, it.value()->GetName());
+		items[0]->setText(0, track->GetName());
 	}
 }
 
 void MainWindow::OnMicrophoneSamplesReceived(const QNetSoundwave& header, const QByteArray& samples)
 {
+	QMultiTrack* track = GetOrCreateMultiTrack(header.id);
+	track->AddAudioSample(header.timestamp, samples);
+}
 
+void MainWindow::OnServerSessionReceived(const QNetServerSession& header)
+{
+	m_initialTimestamp = header.timestamp;
+	emit InitialTimestampChanged(m_initialTimestamp);
+}
+
+QMultiTrack* MainWindow::GetOrCreateMultiTrack(quint32 id)
+{
+	auto it = m_tracks.find(id);
+	if (it != m_tracks.end())
+		return it.value();
+
+	m_tracks[id] = new QMultiTrack(id, "", this);
+	m_player->AddMultiTrack(m_tracks[id]);
+	return m_tracks[id];
 }
