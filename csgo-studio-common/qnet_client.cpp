@@ -110,7 +110,7 @@ void QNetClient::Send(Request& request)
 		QByteArray buffer;
 		QDataStream stream(&buffer, QIODevice::WriteOnly);
 		request.SendData(stream);
-		quint64 bytesSent = 0;
+		qint64 bytesSent = 0;
 		bytesSent += m_dataChannel->write(buffer);
 		Q_ASSERT(bytesSent == buffer.size());
 	}
