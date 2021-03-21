@@ -72,7 +72,7 @@ MainWindow::MainWindow()
 	connect(delay, &QSlider::valueChanged, [this, delayText](int val) {
 		delayText->setText(QString(tr("Delay: %1s")).arg(val));
 		m_processor.SetDelay(val);
-		});
+	});
 
 	delay->setValue(10);
 
