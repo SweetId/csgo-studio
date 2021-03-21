@@ -12,26 +12,24 @@ public:
 		: QObject(parent)
 		, m_startTime(0)
 		, m_pauseTime(0)
-		, m_bPaused(false)
 	{}
 
 	void Start()
 	{
 		m_startTime = QDateTime::currentMSecsSinceEpoch();
 		m_pauseTime = 0;
-		m_bPaused = false;
 	}
 
 	void Pause()
 	{
 		m_pauseTime = QDateTime::currentMSecsSinceEpoch();
-		m_bPaused = true;
 	}
 
 	void SetElapsed(qint64 elapsed)
 	{
 		m_startTime = QDateTime::currentMSecsSinceEpoch() - elapsed;
-		m_pauseTime = m_startTime;
+		if(IsPaused())
+			m_pauseTime = m_startTime + elapsed;
 	}
 	
 	void Resume()
@@ -40,7 +38,6 @@ public:
 		{
 			m_startTime += (QDateTime::currentMSecsSinceEpoch() - m_pauseTime);
 			m_pauseTime = 0;
-			m_bPaused = false;
 		}
 	}
 
@@ -56,10 +53,9 @@ public:
 		}
 	}
 
-	inline bool IsPaused() const { return m_bPaused; }
+	inline bool IsPaused() const { return m_pauseTime > 0; }
 
 private:
 	qint64 m_startTime;
 	qint64 m_pauseTime;
-	bool m_bPaused;
 };
