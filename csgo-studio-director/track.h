@@ -1,18 +1,41 @@
+#pragma once
+
 #include <QObject>
+#include <QMutex>
 
-class QTrack : public QObject
+template <typename TData>
+class Track
 {
-	Q_OBJECT
-
 public:
-	QTrack(quint32 id, const QString& name, QObject* parent = nullptr);
+	bool IsMuted() const { return false; }
 
-	quint32 GetId() const { return m_id; }
-	
-	const QString& GetName() const { return m_name; }
-	void SetName(const QString& name) { m_name = name; }
+	void Add(qint64 timestamp, const TData& samples)
+	{
+		m_mutex.lock();
+		m_timedSamples.push_back({ timestamp, samples });
+		m_mutex.unlock();
+	}
+
+	void GetBetween(qint64 from, qint64 to, QVector<TData>& out)
+	{
+		m_mutex.lock();
+		for (auto& sample : m_timedSamples)
+		{
+			if (sample.timestamp >= from && sample.timestamp <= to)
+			{
+				out.push_back(sample.data);
+			}
+		}
+		m_mutex.unlock();
+	}
 
 private:
-	quint32 m_id;
-	QString m_name;
+	struct Samples
+	{
+		qint64 timestamp;
+		TData data;
+	};
+
+	QMutex m_mutex;
+	QVector<Samples> m_timedSamples;
 };
