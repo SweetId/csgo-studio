@@ -21,7 +21,7 @@
 namespace
 {
 	template <typename T>
-	T Lerp(T a, T b, float t) { return a + t * (b - a); }
+	T Lerp(T a, T b, double t) { return a + t * (b - a); }
 }
 
 MainWindow::MainWindow()
@@ -103,11 +103,6 @@ MainWindow::MainWindow()
 	timeSlider->setRange(0, 100);
 	playerControlBar->addWidget(timeSlider);
 
-	connect(timeSlider, &QSlider::valueChanged, [this](int val) {
-		auto lval = ::Lerp(m_initialTimestamp, QDateTime::currentMSecsSinceEpoch(), val / 100.f);
-		m_player->JumpToTimecode(lval - m_initialTimestamp);
-	});
-
 	QVBoxLayout* timingsLayout = new QVBoxLayout(this);
 	QLabel* realTimeLabel = new QLabel("00:00:00/00:00:00", this);
 	QLabel* relativeTimeLabel = new QLabel("00:00:00/00:00:00", this);
@@ -123,6 +118,12 @@ MainWindow::MainWindow()
 		relativeTimeLabel->setText(QDateTime::fromMSecsSinceEpoch(playerTime).toString("HH:mm:ss") + "/" + QDateTime::fromMSecsSinceEpoch(currentTime - initialTime).toString("HH:mm:ss"));
 	};
 
+
+	connect(timeSlider, &QSlider::valueChanged, [this, UpdateTimeLabels](int val) {
+		auto lval = ::Lerp(m_initialTimestamp, QDateTime::currentMSecsSinceEpoch(), val / 100.f);
+		m_player->JumpToTimecode(lval - m_initialTimestamp);
+		UpdateTimeLabels();
+	});
 	connect(this, &MainWindow::InitialTimestampChanged, [this, UpdateTimeLabels](quint64) {
 		UpdateTimeLabels();
 	});
