@@ -189,19 +189,87 @@ void MainWindow::OnCameraFrame(int id, const QVideoFrame& frame)
 
 float ConvertToStereo(const QAudioBuffer& inBuffer, QByteArray& outBuffer)
 {
-	int channels = inBuffer.format().channelCount();
-	int samples = inBuffer.sampleCount();
+	QAudioFormat format = inBuffer.format();
+	auto rate = format.sampleRate();
+	auto size = format.sampleSize();
+	auto codec = format.codec();
+	auto type = format.sampleType();
+	auto channels = format.channelCount();
+	auto samples = inBuffer.sampleCount();
 
 	outBuffer.reserve(2 * samples);
 
 	float maxVal = 0;
-	const QAudioBuffer::S16U* frames = inBuffer.data<QAudioBuffer::S16U>();
-	for (qint32 i = 0; i < samples; ++i)
+
+	switch (type)
 	{
-		outBuffer.append(frames[i].left);
-		outBuffer.append(frames[i].right);
-		maxVal = qMax(maxVal, qAbs(frames[i].left / 32768.f - 1.f));
-		maxVal = qMax(maxVal, qAbs(frames[i].right / 32768.f - 1.f));
+	case QAudioFormat::SampleType::SignedInt:
+	{
+		for (qint32 i = 0; i < samples; ++i)
+		{
+			// Store as unsigned
+			quint16 left = 0;
+			quint16 right = 0;
+
+			if (size == 8)
+			{
+				const QAudioBuffer::S8S* frames = inBuffer.data<QAudioBuffer::S8S>();
+				left = quint16((frames[i].left / 127.f) * 32768 + 32768);
+				right = quint16((frames[i].right / 127.f) * 32768 + 32768);
+			}
+			else if (size == 16)
+			{
+				const QAudioBuffer::S16S* frames = inBuffer.data<QAudioBuffer::S16S>();
+				left = frames[i].left + 32768;
+				right = frames[i].right + 32768;
+			}
+			outBuffer.append((char*)&left, sizeof(quint16));
+			outBuffer.append((char*)&right, sizeof(quint16));
+			maxVal = qMax(maxVal, qAbs(left / 32768.f));
+			maxVal = qMax(maxVal, qAbs(right / 32768.f));
+		}
+	}
+	break;
+	case QAudioFormat::SampleType::UnSignedInt:
+	{
+		for (qint32 i = 0; i < samples; ++i)
+		{
+			quint16 left = 0;
+			quint16 right = 0;
+
+			if (size == 8)
+			{
+				const QAudioBuffer::S8U* frames = inBuffer.data<QAudioBuffer::S8U>();
+				left = quint16((frames[i].left / 255.f) * 32768);
+				right = quint16((frames[i].right / 255.f) * 32768);
+			}
+			else if (size == 16)
+			{
+				const QAudioBuffer::S16U* frames = inBuffer.data<QAudioBuffer::S16U>();
+				left = frames[i].left + 32768;
+				right = frames[i].right + 32768;
+			}
+			maxVal = qMax(maxVal, qAbs(left / 32768.f));
+			maxVal = qMax(maxVal, qAbs(right / 32768.f));
+		}
+	}
+	break;
+	case QAudioFormat::SampleType::Float:
+	{
+		if (size != 32)
+			break;
+		const QAudioBuffer::S32F* frames = inBuffer.data<QAudioBuffer::S32F>();
+		for (qint32 i = 0; i < samples; ++i)
+		{
+			quint16 left = quint16(frames[i].left * 32768 + 32768);
+			quint16 right = quint16(frames[i].right * 32768 + 32768);
+			outBuffer.append((char*)&left, sizeof(quint16));
+			outBuffer.append((char*)&right, sizeof(quint16));
+			maxVal = qMax(maxVal, qAbs(left / 32768.f));
+			maxVal = qMax(maxVal, qAbs(right / 32768.f));
+		}
+	}
+	break;
 	}
 
 	return 20 * std::log10(maxVal);
@@ -212,7 +280,7 @@ void MainWindow::OnMicrophoneSample(QAudioBuffer buffer)
 	QByteArray stereoSound;
 	float volumedB = ConvertToStereo(buffer, stereoSound);
 
-	if (!m_bMicrophoneMuted && m_connection.IsConnected() && PassNoiseGame(volumedB))
+	if (!m_bMicrophoneMuted && m_connection.IsConnected())//&& PassNoiseGame(volumedB))
 	{
 		QNetSoundwave header;
 		header.id = 0;
