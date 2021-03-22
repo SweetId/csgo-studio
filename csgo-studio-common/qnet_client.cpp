@@ -112,7 +112,7 @@ void QNetClient::Send(Request& request)
 		request.SendData(stream);
 		qint64 bytesSent = 0;
 		bytesSent += m_dataChannel->write(buffer);
-		Q_ASSERT(bytesSent == buffer.size());
+		Q_ASSERT(bytesSent == -1 || bytesSent == buffer.size());
 	}
 }
 
