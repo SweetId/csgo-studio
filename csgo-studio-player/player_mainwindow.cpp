@@ -32,10 +32,10 @@ MainWindow::MainWindow()
 
 	// Network connection
 	toolbar->addWidget(new QLabel("Nickname:", toolbar));
-	QLineEdit* nicknameText = new QLineEdit(toolbar);
+	QLineEdit* nicknameText = new QLineEdit("nickname", toolbar);
 	toolbar->addWidget(nicknameText);
 	toolbar->addWidget(new QLabel("Server IP:", toolbar));
-	QLineEdit* serveripText = new QLineEdit(toolbar);
+	QLineEdit* serveripText = new QLineEdit("127.0.0.1", toolbar);
 	toolbar->addWidget(serveripText);
 
 	QAction* networkOnAction = new QAction(QIcon(":/icons/network_off.png"), tr("Connect to server"), this);
@@ -89,7 +89,7 @@ MainWindow::MainWindow()
 	microphoneButton->setDefaultAction(microphoneOnAction);
 	toolbar->addWidget(microphoneButton);
 	connect(microphoneOnAction, &QAction::triggered, [microphoneButton, microphoneOffAction, microphonesList]() { microphoneButton->setDefaultAction(microphoneOffAction); microphonesList->setEnabled(false); });
-	connect(microphoneOffAction, &QAction::triggered, [microphoneButton, microphoneOnAction, microphonesList]() { microphoneButton->setDefaultAction(microphoneOnAction); microphonesList->setEnabled(false); });
+	connect(microphoneOffAction, &QAction::triggered, [microphoneButton, microphoneOnAction, microphonesList]() { microphoneButton->setDefaultAction(microphoneOnAction); microphonesList->setEnabled(true); });
 
 	connect(microphoneOnAction, &QAction::triggered, [this]() { m_bMicrophoneMuted = false; });
 	connect(microphoneOffAction, &QAction::triggered, [this]() { m_bMicrophoneMuted = true; });
