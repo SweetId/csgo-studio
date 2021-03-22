@@ -5,6 +5,7 @@
 
 #include <QAudioFormat>
 #include <QAudioOutput>
+#include <QComboBox>
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QHostAddress>
@@ -29,6 +30,15 @@ MainWindow::MainWindow()
 	, m_serverTree(nullptr)
 	, m_initialTimestamp(0)
 {
+	QAudioFormat format;
+	// Set up the format, eg.
+	format.setSampleRate(44100);
+	format.setChannelCount(2);
+	format.setSampleSize(16);
+	format.setCodec("audio/pcm");
+	format.setByteOrder(QAudioFormat::LittleEndian);
+	format.setSampleType(QAudioFormat::SignedInt);
+
 	QToolBar* toolbar = new QToolBar(this);
 	toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
 	toolbar->setAllowedAreas(Qt::ToolBarArea::AllToolBarAreas);
@@ -60,6 +70,29 @@ MainWindow::MainWindow()
 		networkButton->setDefaultAction(networkOnAction);
 		serveripText->setEnabled(true);
 		});
+
+	// Microphone list and button
+	toolbar->addSeparator();
+	QComboBox* speakersList = new QComboBox(toolbar);
+	{
+		QSet<QString> items;
+		for (const QAudioDeviceInfo& speaker : QAudioDeviceInfo::availableDevices(QAudio::Mode::AudioOutput))
+			items.insert(speaker.deviceName());
+		speakersList->addItems(items.values());
+	}
+	toolbar->addWidget(speakersList);
+	connect(speakersList, &QComboBox::currentTextChanged, [this, format](const QString& name) {
+		for (const QAudioDeviceInfo& speaker : QAudioDeviceInfo::availableDevices(QAudio::Mode::AudioOutput))
+		{
+			if (speaker.deviceName() == name && speaker.isFormatSupported(format))
+			{
+				m_audioOutput = new QAudioOutput(speaker, format, this);
+				m_audioDevice = m_audioOutput->start();
+				m_player->SetAudioDevice(m_audioDevice);
+				break;
+			}
+		}
+	});
 
 	QWidget* central = new QWidget(this);
 	QVBoxLayout* centralLayout = new QVBoxLayout(central);
@@ -141,29 +174,8 @@ MainWindow::MainWindow()
 	connect(&m_connection, &QNetClient::MicrophoneSamplesReceived, this, &MainWindow::OnMicrophoneSamplesReceived);
 	connect(&m_connection, &QNetClient::ServerSessionReceived, this, &MainWindow::OnServerSessionReceived);
 
-	QAudioFormat format;
-	// Set up the format, eg.
-	format.setSampleRate(48000);
-	format.setChannelCount(2);
-	format.setSampleSize(16);
-	format.setCodec("audio/pcm");
-	format.setByteOrder(QAudioFormat::LittleEndian);
-	format.setSampleType(QAudioFormat::UnSignedInt);
-
 	QAudioDeviceInfo info = QAudioDeviceInfo::defaultOutputDevice();
-	if (!info.isFormatSupported(format))
-	{
-		qWarning() << "Using nearest format";
-		format = info.nearestFormat(format);
-		qWarning() << format.sampleRate();
-		qWarning() << format.channelCount();
-		qWarning() << format.sampleSize();
-		qWarning() << format.codec();
-		qWarning() << format.byteOrder();
-		qWarning() << format.sampleType();
-	}
-
-	m_audioOutput = new QAudioOutput(format, this);
+	m_audioOutput = new QAudioOutput(info, format, this);
 	m_audioDevice = m_audioOutput->start();
 
 	m_player->SetAudioDevice(m_audioDevice);
