@@ -208,23 +208,23 @@ float ConvertToStereo(const QAudioBuffer& inBuffer, QByteArray& outBuffer)
 		for (qint32 i = 0; i < samples; ++i)
 		{
 			// Store as unsigned
-			quint16 left = 0;
-			quint16 right = 0;
+			qint16 left = 0;
+			qint16 right = 0;
 
 			if (size == 8)
 			{
 				const QAudioBuffer::S8S* frames = inBuffer.data<QAudioBuffer::S8S>();
-				left = quint16((frames[i].left / 127.f) * 32768 + 32768);
-				right = quint16((frames[i].right / 127.f) * 32768 + 32768);
+				left = qint16((frames[i].left / 127.f) * 32768);
+				right = qint16((frames[i].right / 127.f) * 32768);
 			}
 			else if (size == 16)
 			{
 				const QAudioBuffer::S16S* frames = inBuffer.data<QAudioBuffer::S16S>();
-				left = frames[i].left + 32768;
-				right = frames[i].right + 32768;
+				left = frames[i].left;
+				right = frames[i].right;
 			}
-			outBuffer.append((char*)&left, sizeof(quint16));
-			outBuffer.append((char*)&right, sizeof(quint16));
+			outBuffer.append((char*)&left, sizeof(qint16));
+			outBuffer.append((char*)&right, sizeof(qint16));
 			maxVal = qMax(maxVal, qAbs(left / 32768.f));
 			maxVal = qMax(maxVal, qAbs(right / 32768.f));
 		}
@@ -234,20 +234,20 @@ float ConvertToStereo(const QAudioBuffer& inBuffer, QByteArray& outBuffer)
 	{
 		for (qint32 i = 0; i < samples; ++i)
 		{
-			quint16 left = 0;
-			quint16 right = 0;
+			qint16 left = 0;
+			qint16 right = 0;
 
 			if (size == 8)
 			{
 				const QAudioBuffer::S8U* frames = inBuffer.data<QAudioBuffer::S8U>();
-				left = quint16((frames[i].left / 255.f) * 32768);
-				right = quint16((frames[i].right / 255.f) * 32768);
+				left = qint16((frames[i].left / 127.f - 1.f) * 32768);
+				right = qint16((frames[i].right / 127.f - 1.f) * 32768);
 			}
 			else if (size == 16)
 			{
 				const QAudioBuffer::S16U* frames = inBuffer.data<QAudioBuffer::S16U>();
-				left = frames[i].left + 32768;
-				right = frames[i].right + 32768;
+				left = frames[i].left - 32768;
+				right = frames[i].right - 32768;
 			}
 			maxVal = qMax(maxVal, qAbs(left / 32768.f));
 			maxVal = qMax(maxVal, qAbs(right / 32768.f));
@@ -261,10 +261,10 @@ float ConvertToStereo(const QAudioBuffer& inBuffer, QByteArray& outBuffer)
 		const QAudioBuffer::S32F* frames = inBuffer.data<QAudioBuffer::S32F>();
 		for (qint32 i = 0; i < samples; ++i)
 		{
-			quint16 left = quint16(frames[i].left * 32768 + 32768);
-			quint16 right = quint16(frames[i].right * 32768 + 32768);
-			outBuffer.append((char*)&left, sizeof(quint16));
-			outBuffer.append((char*)&right, sizeof(quint16));
+			qint16 left = qint16(frames[i].left * 32768);
+			qint16 right = qint16(frames[i].right * 32768);
+			outBuffer.append((char*)&left, sizeof(qint16));
+			outBuffer.append((char*)&right, sizeof(qint16));
 			maxVal = qMax(maxVal, qAbs(left / 32768.f));
 			maxVal = qMax(maxVal, qAbs(right / 32768.f));
 		}
