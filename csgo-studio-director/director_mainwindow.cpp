@@ -36,7 +36,7 @@ MainWindow::MainWindow()
 
 	// Network connection
 	toolbar->addWidget(new QLabel("Server IP:", toolbar));
-	QLineEdit* serveripText = new QLineEdit(toolbar);
+	QLineEdit* serveripText = new QLineEdit("127.0.0.1", toolbar);
 	toolbar->addWidget(serveripText);
 
 	QAction* networkOnAction = new QAction(QIcon(":/icons/network_off.png"), tr("Connect to server"), this);
