@@ -21,7 +21,7 @@ public:
 		m_mutex.lock();
 		for (auto& sample : m_timedSamples)
 		{
-			if (sample.timestamp >= from && sample.timestamp <= to)
+			if (sample.timestamp >= from && sample.timestamp < to)
 			{
 				out.push_back(sample.data);
 			}
