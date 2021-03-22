@@ -62,6 +62,6 @@ void Server::OnCameraFrameReceived(const QNetCameraFrame& header, const QImage& 
 
 void Server::OnMicrophoneSampleReceived(const QNetSoundwave& header, const QByteArray& samples)
 {
-	qDebug() << samples.size();
+	//qDebug() << samples.size();
 	m_directorsServer.Broadcast(TRequestWithData<QNetSoundwave, QByteArray>(header, samples));
 }
