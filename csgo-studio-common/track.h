@@ -7,12 +7,22 @@ template <typename TData>
 class Track
 {
 public:
+	struct Samples
+	{
+		qint64 timestamp;
+		TData data;
+	};
+
 	bool IsMuted() const { return false; }
 
 	void Add(qint64 timestamp, const TData& samples)
 	{
 		m_mutex.lock();
-		m_timedSamples.push_back({ timestamp, samples });
+		// ordered insertion
+		m_timedSamples.insert(
+			std::upper_bound(m_timedSamples.begin(), m_timedSamples.end(), Samples{ timestamp, samples }, [](const Samples& a, const Samples& b) { return a.timestamp < b.timestamp; }),
+			Samples{ timestamp, samples }
+		);
 		m_mutex.unlock();
 	}
 
@@ -29,12 +39,17 @@ public:
 		m_mutex.unlock();
 	}
 
-private:
-	struct Samples
+	typename QVector<Samples>::const_iterator begin() const
 	{
-		qint64 timestamp;
-		TData data;
-	};
+		return m_timedSamples.begin();
+	}
+
+	typename QVector<Samples>::const_iterator end() const
+	{
+		return m_timedSamples.end();
+	}
+
+private:
 
 	QMutex m_mutex;
 	QVector<Samples> m_timedSamples;
