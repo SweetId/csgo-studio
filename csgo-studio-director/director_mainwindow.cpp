@@ -29,7 +29,7 @@ namespace
 MainWindow::MainWindow()
 	: m_player(new QMultiTracksPlayer(this))
 	, m_serverTree(nullptr)
-	, m_initialTimestamp(0)
+	, m_initialTimestamp(QDateTime::currentMSecsSinceEpoch())
 	, m_speakers(nullptr)
 {
 	QToolBar* toolbar = new QToolBar(this);
