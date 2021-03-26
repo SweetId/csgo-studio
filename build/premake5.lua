@@ -37,7 +37,7 @@ project "csgo-studio-common"
 
 	qt.enable()
 	qtpath(qt_path)
-	qtmodules { "core", "gui", "multimedia", "network" }
+	qtmodules { "core", "gui", "multimedia", "network", "widgets" }
 	qtprefix "QT5"
 
 	configuration { "Debug" }
