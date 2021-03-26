@@ -21,9 +21,10 @@ bool StreamEncoder::Initialize()
 	if (!m_descriptor.IsValid())
 		return false;
 
-	m_frame->nb_samples = m_descriptor.m_privateContext->frame_size;
-	m_frame->format = m_descriptor.m_privateContext->sample_fmt;
-	m_frame->channel_layout = m_descriptor.m_privateContext->channel_layout;
+	m_frame->nb_samples = m_descriptor.m_privateEncodingContext->frame_size;
+	m_frame->format = m_descriptor.m_privateEncodingContext->sample_fmt;
+	m_frame->channels = m_descriptor.m_privateEncodingContext->channels;
+	m_frame->channel_layout = m_descriptor.m_privateEncodingContext->channel_layout;
 
 	int32_t ret = av_frame_get_buffer(m_frame, 0);
 	return ret >= 0;
@@ -58,14 +59,14 @@ bool StreamEncoder::Encode(const QByteArray& inBuffer, QByteArray& outBuffer)
 
 bool StreamEncoder::EncodeInternal(AVFrame* frame, QByteArray& outBuffer)
 {
-	int32_t ret = avcodec_send_frame(m_descriptor.m_privateContext, frame);
+	int32_t ret = avcodec_send_frame(m_descriptor.m_privateEncodingContext, frame);
 	if (ret < 0)
 		return false;
 
 	AVPacket* packet = av_packet_alloc();
 	while (ret >= 0)
 	{
-		ret = avcodec_receive_packet(m_descriptor.m_privateContext, packet);
+		ret = avcodec_receive_packet(m_descriptor.m_privateEncodingContext, packet);
 		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
 		{
 			av_packet_free(&packet);

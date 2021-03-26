@@ -13,7 +13,8 @@ AudioSampleDescriptor::AudioSampleDescriptor(const ECodec codec, const int32_t c
 	, m_sampleRate(sampleRate)
 	, m_channels(channels)
 	, m_codec(codec)
-	, m_privateContext(nullptr)
+	, m_privateEncodingContext(nullptr)
+	, m_privateDecodingContext(nullptr)
 {}
 
 AudioSampleDescriptor::~AudioSampleDescriptor()
@@ -40,7 +41,7 @@ AudioSampleDescriptor& AudioSampleDescriptor::operator=(const AudioSampleDescrip
 
 bool AudioSampleDescriptor::IsValid() const
 {
-	return m_codec.IsValid() && nullptr != m_privateContext;
+	return m_codec.IsValid() && nullptr != m_privateEncodingContext && nullptr != m_privateDecodingContext;
 }
 
 bool AudioSampleDescriptor::SetCodec(ECodec codec)
@@ -77,21 +78,38 @@ bool AudioSampleDescriptor::SetSampleFormat(ESampleFormat format)
 
 bool AudioSampleDescriptor::UpdateInternal()
 {
-	if (nullptr == m_privateContext)
+	if (nullptr == m_privateEncodingContext)
 	{
-		m_privateContext = avcodec_alloc_context3(m_codec.m_privateCodec);
+		m_privateEncodingContext = avcodec_alloc_context3(m_codec.m_privateEncoder);
+	}
+	if (nullptr == m_privateDecodingContext)
+	{
+		m_privateDecodingContext = avcodec_alloc_context3(m_codec.m_privateDecoder);
 	}
 
 	if (!IsValid())
 		return false;
 
-	m_privateContext->bit_rate = m_bitRate;
-	m_privateContext->sample_rate = m_sampleRate;
-	m_privateContext->sample_fmt = ffmpeg::ToFFMpegFormat(m_format);
-	m_privateContext->channels = m_channels;
-	m_privateContext->channel_layout = m_codec.GetFirstLayoutForChannels(m_channels);
+	m_privateEncodingContext->bit_rate = m_bitRate;
+	m_privateEncodingContext->sample_rate = m_sampleRate;
+	m_privateEncodingContext->sample_fmt = ffmpeg::ToFFMpegFormat(m_format);
+	m_privateEncodingContext->channels = m_channels;
+	m_privateEncodingContext->channel_layout = m_codec.GetFirstLayoutForChannels(m_channels);
 
-	int32_t ret = avcodec_open2(m_privateContext, m_codec.m_privateCodec, nullptr);
+	int32_t ret = avcodec_open2(m_privateEncodingContext, m_codec.m_privateEncoder, nullptr);
+	if (ret < 0)
+	{
+		DeleteContext();
+		return false;
+	}
+
+	m_privateDecodingContext->bit_rate = m_bitRate;
+	m_privateDecodingContext->sample_rate = m_sampleRate;
+	m_privateDecodingContext->sample_fmt = ffmpeg::ToFFMpegFormat(m_format);
+	m_privateDecodingContext->channels = m_channels;
+	m_privateDecodingContext->channel_layout = m_codec.GetFirstLayoutForChannels(m_channels);
+
+	ret = avcodec_open2(m_privateDecodingContext, m_codec.m_privateDecoder, nullptr);
 	if (ret < 0)
 	{
 		DeleteContext();
@@ -103,7 +121,11 @@ bool AudioSampleDescriptor::UpdateInternal()
 
 void AudioSampleDescriptor::DeleteContext()
 {
-	if (nullptr != m_privateContext)
-		avcodec_free_context(&m_privateContext);
-	m_privateContext = nullptr;
+	if (nullptr != m_privateEncodingContext)
+		avcodec_free_context(&m_privateEncodingContext);
+	m_privateEncodingContext = nullptr;
+
+	if (nullptr != m_privateDecodingContext)
+		avcodec_free_context(&m_privateDecodingContext);
+	m_privateDecodingContext = nullptr;
 }

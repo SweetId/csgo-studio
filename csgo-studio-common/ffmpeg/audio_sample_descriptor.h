@@ -33,7 +33,8 @@ private:
 
 	CodecDescriptor m_codec;
 
-	struct AVCodecContext* m_privateContext;
+	struct AVCodecContext* m_privateEncodingContext;
+	struct AVCodecContext* m_privateDecodingContext;
 
 	friend class StreamEncoder;
 	friend class StreamDecoder;
