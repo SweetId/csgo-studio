@@ -1,5 +1,12 @@
 #include "player_mainwindow.h"
 
+#include "audio_device.h"
+#include "qnet_data.h"
+#include "ffmpeg/stream_decoder.h"
+#include "ffmpeg/stream_encoder.h"
+
+#include <QAudioInput>
+#include <QAudioOutput>
 #include <QAudioFormat>
 #include <QAudioProbe>
 #include <QAudioRecorder>
@@ -18,16 +25,23 @@
 #include <QCameraViewfinder>
 #include <fstream>
 
-#include "qnet_data.h"
-
-#include "ffmpeg/stream_encoder.h"
-
 MainWindow::MainWindow()
 	: m_camera(nullptr)
-	, m_microphone(new QAudioRecorder(this))
 	, m_bMicrophoneMuted(true)
 	, m_mindB(0.f)
+	, m_microphone(nullptr)
 {
+	QAudioFormat format;
+	format.setSampleRate(44100);
+	format.setChannelCount(2);
+	format.setSampleSize(16);
+	format.setCodec("audio/pcm");
+	format.setByteOrder(QAudioFormat::LittleEndian);
+	format.setSampleType(QAudioFormat::SignedInt);
+
+	m_inputDevice = new AudioDevice(format, this);
+	connect(m_inputDevice, &AudioDevice::dataAvailable, this, &MainWindow::OnMicrophoneSample);
+
 	QToolBar* toolbar = new QToolBar(this);
 	toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
 	toolbar->setAllowedAreas(Qt::ToolBarArea::AllToolBarAreas);
@@ -76,15 +90,28 @@ MainWindow::MainWindow()
 	toolbar->addSeparator();
 	QComboBox* microphonesList = new QComboBox(toolbar);
 	{
-		QSet<QString> items;
-		for (const QString& microphone : m_microphone->audioInputs())
-			items.insert(microphone);
-		microphonesList->addItems(items.values());
+		QSet<QString> set;
+		set.insert(QAudioDeviceInfo::defaultInputDevice().deviceName());
+		microphonesList->addItem(QAudioDeviceInfo::defaultInputDevice().deviceName(), QVariant::fromValue(QAudioDeviceInfo::defaultInputDevice()));
+		for (const QAudioDeviceInfo& microphone : QAudioDeviceInfo::availableDevices(QAudio::AudioInput))
+		{
+			if (!set.contains(microphone.deviceName()))
+			{
+				set.insert(microphone.deviceName());
+				microphonesList->addItem(microphone.deviceName(), QVariant::fromValue(microphone));
+			}
+		}
+
+		OnMicrophoneChanged(QAudioDeviceInfo::defaultInputDevice());
 	}
+
+	//qDebug() << "DEFAULT:" << QAudioDeviceInfo::defaultInputDevice().deviceName()<< QAudioDeviceInfo::defaultInputDevice().isNull();
 	toolbar->addWidget(microphonesList);
-	connect(microphonesList, &QComboBox::currentTextChanged, [this](const QString& mic) {
-		m_microphone->setAudioInput(mic);
+	connect(microphonesList, &QComboBox::currentTextChanged, [this, microphonesList, format](const QString&) {
+		QAudioDeviceInfo data = microphonesList->currentData().value<QAudioDeviceInfo>();
+		OnMicrophoneChanged(data);
 	});
+
 	QAction* microphoneOnAction = new QAction(QIcon(":/icons/microphone_off.png"), tr("Turn mic on"), this);
 	QAction* microphoneOffAction = new QAction(QIcon(":/icons/microphone_on.png"), tr("Turn mic off"), this);
 	QToolButton* microphoneButton = new QToolButton(toolbar);
@@ -124,31 +151,16 @@ MainWindow::MainWindow()
 	m_cameraWidget->setFixedSize(640, 480);
 
 
-	QAudioEncoderSettings settings;
-	settings.setCodec("audio/pcm");
-	settings.setChannelCount(2);
-	settings.setSampleRate(48000);
-	m_microphone->setEncodingSettings(settings);
-	m_microphone->setAudioInput(m_microphone->defaultAudioInput());
-	m_microphone->record();
 
-	m_soundCapture = new QAudioProbe(this);
-	m_soundCapture->setSource(m_microphone);
-	connect(m_soundCapture, &QAudioProbe::audioBufferProbed, this, &MainWindow::OnMicrophoneSample);
+	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 44100, ESampleFormat::S16);
+	m_encoder = new StreamEncoder(descriptor);
 
-	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 48000, ESampleFormat::S16);
-	m_stream = new StreamEncoder(descriptor);
-	m_stream->DataAvailable += [this](const uint32_t size, const uint8_t* data) {
-		if (!m_bMicrophoneMuted && m_connection.IsConnected())//&& PassNoiseGame(volumedB))
-		{
-			QByteArray audio((const char*)data, size);
-			QNetSoundwave header;
-			header.id = 0;
-			header.size = audio.size();
-			header.timestamp = QDateTime::currentMSecsSinceEpoch();
-			m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, audio));
-		}
-	};
+	// Local audio playback
+	QAudioDeviceInfo info = QAudioDeviceInfo::defaultOutputDevice();
+	m_audioOutput = new QAudioOutput(info, format, this);
+	m_audioDevice = m_audioOutput->start();
+
+	m_decoder = new StreamDecoder(descriptor);
 }
 
 MainWindow::~MainWindow()
@@ -292,11 +304,25 @@ float ConvertToStereo(const QAudioBuffer& inBuffer, QByteArray& outBuffer)
 	return 20 * std::log10(maxVal);
 }
 
-void MainWindow::OnMicrophoneSample(QAudioBuffer buffer)
+void MainWindow::OnMicrophoneSample(const char* data, qint64 len)
 {
-	QByteArray stereoSound;
-	float volumedB = ConvertToStereo(buffer, stereoSound);
-	m_stream->Encode(stereoSound.size(), (const uint8_t*)stereoSound.constData());
+	QByteArray stereoSound(data, len);
+	QByteArray outBuffer;
+	//float volumedB = ConvertToStereo(buffer, stereoSound);
+	m_encoder->Encode(stereoSound, outBuffer);
+
+	if (!m_bMicrophoneMuted && m_connection.IsConnected() && PassNoiseGame(m_inputDevice->level()))
+	{
+		QNetSoundwave header;
+		header.id = 0;
+		header.size = outBuffer.size();
+		header.timestamp = QDateTime::currentMSecsSinceEpoch();
+		m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, outBuffer));
+	}
+
+	/*QByteArray decoded;
+	m_decoder->Decode(outBuffer, decoded);
+	m_audioDevice->write(decoded);*/
 }
 
 void MainWindow::ConnectToServer(const QString& serverip, const QString& nickname)
@@ -348,5 +374,29 @@ void MainWindow::SendIdentifier(const QString& nickname)
 
 bool MainWindow::PassNoiseGame(float volumedB)
 {
-	return volumedB >= m_mindB;
+	return volumedB >= 0.3;
+}
+
+void MainWindow::OnMicrophoneChanged(const QAudioDeviceInfo& info)
+{
+	QAudioFormat format;
+	format.setSampleRate(44100);
+	format.setChannelCount(2);
+	format.setSampleSize(16);
+	format.setCodec("audio/pcm");
+	format.setByteOrder(QAudioFormat::LittleEndian);
+	format.setSampleType(QAudioFormat::SignedInt);
+
+	m_inputDevice->stop();
+	if (nullptr != m_microphone)
+	{
+		m_microphone->stop();
+		m_microphone->disconnect(this);
+		delete m_microphone;
+	}
+
+	m_microphone = new QAudioInput(info, format, this);
+	m_inputDevice->start();
+	m_microphone->start(m_inputDevice);
+	m_microphone->setVolume(1);
 }

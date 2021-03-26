@@ -29,7 +29,7 @@ public slots:
 
 private slots:
     void OnCameraFrame(int id, const class QVideoFrame& frame);
-    void OnMicrophoneSample(QAudioBuffer buffer);
+    void OnMicrophoneSample(const char* data, qint64 len);
 
     void OnSocketErrorOccurred(QString message);
 
@@ -37,13 +37,21 @@ private:
     void SendIdentifier(const QString& nickname);
     bool PassNoiseGame(float volumedB);
 
-    class QAudioRecorder* m_microphone;
-    class QAudioProbe* m_soundCapture;
+    void OnMicrophoneChanged(const class QAudioDeviceInfo& info);
+
+    class QAudioInput* m_microphone;
+    class AudioDevice* m_inputDevice;
+
     class QCamera* m_camera;
     class QCameraViewfinder* m_cameraWidget;
     class QCameraImageCapture* m_videoCapture;
 
-    class StreamEncoder* m_stream;
+    class StreamEncoder* m_encoder;
+
+    // For local debug playback
+    class QAudioOutput* m_audioOutput;
+    class QIODevice* m_audioDevice;
+    class StreamDecoder* m_decoder;
 
     QNetClient m_connection;
 
