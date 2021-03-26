@@ -27,9 +27,9 @@ void QSoundBar::paintEvent(QPaintEvent* /* event */)
 
     int pos = ((painter.viewport().right() - 20) - (painter.viewport().left() + 11)) * m_level;
     QRect rect(painter.viewport().left() + 11, 
-        painter.viewport().top() + 10,
+        painter.viewport().top() + 11,
         pos,
-        painter.viewport().height() - 21);
+        painter.viewport().height() - 22);
 
    /* QLinearGradient gradient(0,0,rect.width(), 0);
     gradient.setSpread(QGradient::PadSpread);
