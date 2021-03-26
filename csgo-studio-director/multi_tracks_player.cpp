@@ -38,7 +38,6 @@ void QMultiTrackPlayerWorker::run()
 					QByteArray data;
 					for (QByteArray& sample : samples)
 						data.append(sample);
-					samples.empty();
 
 					m_audioDevice->write(data);
 				}
