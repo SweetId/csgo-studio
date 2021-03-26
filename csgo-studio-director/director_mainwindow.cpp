@@ -2,6 +2,7 @@
 
 #include "multi_track.h"
 #include "multi_tracks_player.h"
+#include "ffmpeg/stream_decoder.h"
 
 #include <QAudioFormat>
 #include <QAudioOutput>
@@ -179,6 +180,9 @@ MainWindow::MainWindow()
 	m_audioDevice = m_audioOutput->start();
 
 	m_player->SetAudioDevice(m_audioDevice);
+
+	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 44100, ESampleFormat::S16);
+	m_decoder = new StreamDecoder(descriptor);
 }
 
 MainWindow::~MainWindow()
@@ -245,8 +249,11 @@ void MainWindow::OnClientIdentifierReceived(const QNetClientIdentifier& header)
 
 void MainWindow::OnMicrophoneSamplesReceived(const QNetSoundwave& header, const QByteArray& samples)
 {
+	QByteArray outData;
+	m_decoder->Decode(samples, outData);
+
 	QMultiTrack* track = GetOrCreateMultiTrack(header.id);
-	track->AddAudioSample(header.timestamp, samples);
+	track->AddAudioSample(header.timestamp, outData);
 }
 
 void MainWindow::OnServerSessionReceived(const QNetServerSession& header)
