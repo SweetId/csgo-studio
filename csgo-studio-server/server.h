@@ -17,6 +17,8 @@ protected slots:
 	void OnMicrophoneSampleReceived(const QNetSoundwave& header, const QByteArray& samples);
 
 protected:
+	class QMultiTrack* GetOrCreateMultiTrack(quint32 id);
+
 	QNetServer m_clientsServer;
 	QNetServer m_directorsServer;
 
@@ -30,4 +32,7 @@ protected:
 		QString name;
 	};
 	QMap<QNetClient*, ClientInfo> m_clientIds;
+
+	// Clients datas (needed to send to any director joining)
+	QMap<quint32, class QMultiTrack*> m_tracks;
 };

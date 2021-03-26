@@ -1,5 +1,7 @@
 #include "server.h"
 
+#include "track.h"
+#include "multi_track.h"
 #include "qnet_data.h"
 
 #include <QDateTime>
@@ -44,6 +46,21 @@ Server::Server(quint16 clientsPort, quint16 directorPort)
 			header.id = client.id;
 			header.name = client.name;
 			director->Send(TRequest<QNetClientIdentifier>(header));
+
+			// Send all datas currently recorded
+			QMultiTrack* track = GetOrCreateMultiTrack(client.id);
+			auto* audioTrack = track->GetAudioTrack();
+			if (nullptr != audioTrack)
+			{
+				for (auto it = audioTrack->begin(); it != audioTrack->end(); ++it)
+				{
+					QNetSoundwave wave;
+					wave.id = client.id;
+					wave.timestamp = it->timestamp;
+					wave.size = it->data.size();
+					m_directorsServer.Broadcast(TRequestWithData<QNetSoundwave, QByteArray>(wave, it->data));
+				}
+			}
 		}
 	});
 }
@@ -62,6 +79,19 @@ void Server::OnCameraFrameReceived(const QNetCameraFrame& header, const QImage& 
 
 void Server::OnMicrophoneSampleReceived(const QNetSoundwave& header, const QByteArray& samples)
 {
-	//qDebug() << samples.size();
+	// Store samples in the client track
+	QMultiTrack* track = GetOrCreateMultiTrack(header.id);
+	track->AddAudioSample(header.timestamp, samples);
+
 	m_directorsServer.Broadcast(TRequestWithData<QNetSoundwave, QByteArray>(header, samples));
+}
+
+QMultiTrack* Server::GetOrCreateMultiTrack(quint32 id)
+{
+	auto it = m_tracks.find(id);
+	if (it != m_tracks.end())
+		return it.value();
+
+	m_tracks[id] = new QMultiTrack(id, "", this);
+	return m_tracks[id];
 }
