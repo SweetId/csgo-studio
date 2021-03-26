@@ -2,6 +2,7 @@
 
 #include "audio_device.h"
 #include "qnet_data.h"
+#include "sound_bar.h"
 #include "ffmpeg/stream_decoder.h"
 #include "ffmpeg/stream_encoder.h"
 
@@ -150,6 +151,9 @@ MainWindow::MainWindow()
 	setCentralWidget(m_cameraWidget);
 	m_cameraWidget->setFixedSize(640, 480);
 
+	QSoundBar* soundbar = new QSoundBar(this);
+	setCentralWidget(soundbar);
+	connect(m_inputDevice, &AudioDevice::levelUpdated, soundbar, &QSoundBar::setLevel);
 
 
 	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 44100, ESampleFormat::S16);
