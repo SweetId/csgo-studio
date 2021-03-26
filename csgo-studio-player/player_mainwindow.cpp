@@ -16,8 +16,11 @@
 #include <QToolbar>
 #include <QToolButton>
 #include <QCameraViewfinder>
+#include <fstream>
 
 #include "qnet_data.h"
+
+#include "ffmpeg/stream_encoder.h"
 
 MainWindow::MainWindow()
 	: m_camera(nullptr)
@@ -132,6 +135,20 @@ MainWindow::MainWindow()
 	m_soundCapture = new QAudioProbe(this);
 	m_soundCapture->setSource(m_microphone);
 	connect(m_soundCapture, &QAudioProbe::audioBufferProbed, this, &MainWindow::OnMicrophoneSample);
+
+	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 48000, ESampleFormat::S16);
+	m_stream = new StreamEncoder(descriptor);
+	m_stream->DataAvailable += [this](const uint32_t size, const uint8_t* data) {
+		if (!m_bMicrophoneMuted && m_connection.IsConnected())//&& PassNoiseGame(volumedB))
+		{
+			QByteArray audio((const char*)data, size);
+			QNetSoundwave header;
+			header.id = 0;
+			header.size = audio.size();
+			header.timestamp = QDateTime::currentMSecsSinceEpoch();
+			m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, audio));
+		}
+	};
 }
 
 MainWindow::~MainWindow()
@@ -279,15 +296,7 @@ void MainWindow::OnMicrophoneSample(QAudioBuffer buffer)
 {
 	QByteArray stereoSound;
 	float volumedB = ConvertToStereo(buffer, stereoSound);
-
-	if (!m_bMicrophoneMuted && m_connection.IsConnected())//&& PassNoiseGame(volumedB))
-	{
-		QNetSoundwave header;
-		header.id = 0;
-		header.size = stereoSound.size();
-		header.timestamp = QDateTime::currentMSecsSinceEpoch();
-		m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, stereoSound));
-	}
+	m_stream->Encode(stereoSound.size(), (const uint8_t*)stereoSound.constData());
 }
 
 void MainWindow::ConnectToServer(const QString& serverip, const QString& nickname)

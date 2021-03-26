@@ -43,6 +43,8 @@ private:
     class QCameraViewfinder* m_cameraWidget;
     class QCameraImageCapture* m_videoCapture;
 
+    class StreamEncoder* m_stream;
+
     QNetClient m_connection;
 
     bool m_bMicrophoneMuted;
