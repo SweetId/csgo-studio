@@ -31,6 +31,7 @@ public slots:
 
 private:
     class QMultiTrack* GetOrCreateMultiTrack(quint32 id);
+    void OnSpeakersChanged(const class QAudioDeviceInfo& info);
 
     QNetClient m_connection;
     QMap<quint32, class QMultiTrack*> m_tracks;
@@ -39,7 +40,7 @@ private:
 
     class QTreeWidget* m_serverTree;
 
-    class QAudioOutput* m_audioOutput;
+    class QAudioOutput* m_speakers;
     class QIODevice* m_audioDevice;
     class StreamDecoder* m_decoder;
 

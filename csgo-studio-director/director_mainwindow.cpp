@@ -30,16 +30,8 @@ MainWindow::MainWindow()
 	: m_player(new QMultiTracksPlayer(this))
 	, m_serverTree(nullptr)
 	, m_initialTimestamp(0)
+	, m_speakers(nullptr)
 {
-	QAudioFormat format;
-	// Set up the format, eg.
-	format.setSampleRate(44100);
-	format.setChannelCount(2);
-	format.setSampleSize(16);
-	format.setCodec("audio/pcm");
-	format.setByteOrder(QAudioFormat::LittleEndian);
-	format.setSampleType(QAudioFormat::SignedInt);
-
 	QToolBar* toolbar = new QToolBar(this);
 	toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
 	toolbar->setAllowedAreas(Qt::ToolBarArea::AllToolBarAreas);
@@ -77,22 +69,21 @@ MainWindow::MainWindow()
 	QComboBox* speakersList = new QComboBox(toolbar);
 	{
 		QSet<QString> items;
-		for (const QAudioDeviceInfo& speaker : QAudioDeviceInfo::availableDevices(QAudio::Mode::AudioOutput))
-			items.insert(speaker.deviceName());
-		speakersList->addItems(items.values());
-	}
-	toolbar->addWidget(speakersList);
-	connect(speakersList, &QComboBox::currentTextChanged, [this, format](const QString& name) {
+		items.insert(QAudioDeviceInfo::defaultOutputDevice().deviceName());
+		speakersList->addItem(QAudioDeviceInfo::defaultOutputDevice().deviceName(), QVariant::fromValue(QAudioDeviceInfo::defaultOutputDevice()));
 		for (const QAudioDeviceInfo& speaker : QAudioDeviceInfo::availableDevices(QAudio::Mode::AudioOutput))
 		{
-			if (speaker.deviceName() == name && speaker.isFormatSupported(format))
+			if (!items.contains(speaker.deviceName()))
 			{
-				m_audioOutput = new QAudioOutput(speaker, format, this);
-				m_audioDevice = m_audioOutput->start();
-				m_player->SetAudioDevice(m_audioDevice);
-				break;
+				items.insert(speaker.deviceName());
+				speakersList->addItem(speaker.deviceName(), QVariant::fromValue(speaker));
 			}
 		}
+	}
+	toolbar->addWidget(speakersList);
+	connect(speakersList, &QComboBox::currentTextChanged, [this, speakersList](const QString& name) {
+		QAudioDeviceInfo data = speakersList->currentData().value<QAudioDeviceInfo>();
+		OnSpeakersChanged(data);
 	});
 
 	QWidget* central = new QWidget(this);
@@ -175,11 +166,7 @@ MainWindow::MainWindow()
 	connect(&m_connection, &QNetClient::MicrophoneSamplesReceived, this, &MainWindow::OnMicrophoneSamplesReceived);
 	connect(&m_connection, &QNetClient::ServerSessionReceived, this, &MainWindow::OnServerSessionReceived);
 
-	QAudioDeviceInfo info = QAudioDeviceInfo::defaultOutputDevice();
-	m_audioOutput = new QAudioOutput(info, format, this);
-	m_audioDevice = m_audioOutput->start();
-
-	m_player->SetAudioDevice(m_audioDevice);
+	OnSpeakersChanged(QAudioDeviceInfo::defaultOutputDevice());
 
 	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 44100, ESampleFormat::S16);
 	m_decoder = new StreamDecoder(descriptor);
@@ -271,4 +258,28 @@ QMultiTrack* MainWindow::GetOrCreateMultiTrack(quint32 id)
 	m_tracks[id] = new QMultiTrack(id, "", this);
 	m_player->AddMultiTrack(m_tracks[id]);
 	return m_tracks[id];
+}
+
+void MainWindow::OnSpeakersChanged(const QAudioDeviceInfo& info)
+{
+	QAudioFormat format;
+	format.setSampleRate(44100);
+	format.setChannelCount(2);
+	format.setSampleSize(16);
+	format.setCodec("audio/pcm");
+	format.setByteOrder(QAudioFormat::LittleEndian);
+	format.setSampleType(QAudioFormat::SignedInt);
+
+	if (nullptr != m_speakers)
+	{
+		m_speakers->stop();
+		m_speakers->disconnect(this);
+		delete m_speakers;
+	}
+
+	m_speakers = new QAudioOutput(info, format, this);
+	m_audioDevice = m_speakers->start();
+	m_speakers->setVolume(1);
+
+	m_player->SetAudioDevice(m_audioDevice);
 }
