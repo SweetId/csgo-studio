@@ -44,6 +44,14 @@ project "csgo-studio-common"
 		qtsuffix "d"
 	configuration { }
 
+	defines {
+		"__STDC_CONSTANT_MACROS"
+	}
+
+	includedirs {
+		"../csgo-studio-common/"
+	}
+	
 	files {
 		"../csgo-studio-common/**.h",
 		"../csgo-studio-common/**.cpp"
@@ -51,6 +59,21 @@ project "csgo-studio-common"
 
 	links {
 		"ws2_32"
+	}
+
+	-- FFmpeg
+	includedirs {
+		"../externals/ffmpeg/include/"
+	}
+
+	libdirs {
+		"../externals/ffmpeg/lib/"
+	}
+
+	links {
+		"avcodec",
+		"avformat",
+		"avutil"
 	}
 
 
@@ -100,8 +123,15 @@ project "csgo-studio-player"
 		"../csgo-studio-player/**.qrc"
 	}
 
+	libdirs {
+		"../externals/ffmpeg/lib/"
+	}
+
 	links {
-		"csgo-studio-common"
+		"csgo-studio-common",
+		"avcodec",
+		"avformat",
+		"avutil"
 	}
 
 project "csgo-studio-gui"
@@ -130,8 +160,15 @@ project "csgo-studio-gui"
 		"../csgo-studio-gui/**.qrc"
 	}
 
+	libdirs {
+		"../externals/ffmpeg/lib/"
+	}
+
 	links {
-		"csgo-studio-common"
+		"csgo-studio-common",
+		"avcodec",
+		"avformat",
+		"avutil"
 	}
 
 project "csgo-studio-server"
@@ -159,8 +196,15 @@ project "csgo-studio-server"
 		"../csgo-studio-server/**.cpp"
 	}
 
+	libdirs {
+		"../externals/ffmpeg/lib/"
+	}
+
 	links {
-		"csgo-studio-common"
+		"csgo-studio-common",
+		"avcodec",
+		"avformat",
+		"avutil"
 	}
 
 project "csgo-studio-director"
@@ -188,7 +232,14 @@ project "csgo-studio-director"
 		"../csgo-studio-director/**.cpp"
 	}
 
+	libdirs {
+		"../externals/ffmpeg/lib/"
+	}
+
 	links {
-		"csgo-studio-common"
+		"csgo-studio-common",
+		"avcodec",
+		"avformat",
+		"avutil"
 	}
 
