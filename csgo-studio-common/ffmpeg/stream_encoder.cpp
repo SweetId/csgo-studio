@@ -2,6 +2,8 @@
 
 #include "private/ffmpeg.h"
 
+#include <QByteArray>
+
 StreamEncoder::StreamEncoder(const AudioSampleDescriptor& descriptor)
 	: m_descriptor(descriptor)
 	, m_frame(av_frame_alloc())
@@ -27,8 +29,11 @@ bool StreamEncoder::Initialize()
 	return ret >= 0;
 }
 
-bool StreamEncoder::Encode(const uint32_t size, const uint8_t* data)
+bool StreamEncoder::Encode(const QByteArray& inBuffer, QByteArray& outBuffer)
 {
+	const uint32_t size = inBuffer.size();
+	const uint8_t* data = (const uint8_t*)inBuffer.constData();
+
 	uint32_t offset = 0;
 	while (offset < size)
 	{
@@ -45,15 +50,13 @@ bool StreamEncoder::Encode(const uint32_t size, const uint8_t* data)
 
 		offset += sizeToCopy;
 
-		if (!EncodeInternal(m_frame))
+		if (!EncodeInternal(m_frame, outBuffer))
 			return false;
 	}
-
-	// Flush encoder
-	return EncodeInternal(nullptr);
+	return true;
 }
 
-bool StreamEncoder::EncodeInternal(AVFrame* frame)
+bool StreamEncoder::EncodeInternal(AVFrame* frame, QByteArray& outBuffer)
 {
 	int32_t ret = avcodec_send_frame(m_descriptor.m_privateContext, frame);
 	if (ret < 0)
@@ -74,7 +77,7 @@ bool StreamEncoder::EncodeInternal(AVFrame* frame)
 			return false;
 		}
 
-		DataAvailable(packet->size, packet->data);
+		outBuffer.append((const char*)packet->data, packet->size);
 	}
 	av_packet_free(&packet);
 	return true;

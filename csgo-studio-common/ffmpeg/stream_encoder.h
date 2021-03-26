@@ -11,14 +11,12 @@ public:
 	StreamEncoder(const AudioSampleDescriptor& descriptor);
 	~StreamEncoder();
 
-	bool Encode(const uint32_t size, const uint8_t* data);
-
-	Callback<const uint32_t, const uint8_t*> DataAvailable;
+	bool Encode(const class QByteArray& inBuffer, class QByteArray& outBuffer);
 
 private:
 	bool Initialize();
 	// Encode current frame in the packet
-	bool EncodeInternal(struct AVFrame* frame);
+	bool EncodeInternal(struct AVFrame* frame, class QByteArray& outBuffer);
 
 	AudioSampleDescriptor m_descriptor;
 
