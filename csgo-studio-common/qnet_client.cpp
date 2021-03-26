@@ -186,7 +186,9 @@ void QNetClient::InterpretDataBytes()
 	// Interpret buffer as control headers
 	while (!m_pendingRequests.empty())
 	{
-		QDataStream stream(&m_dataBuffer, QIODevice::ReadOnly);
+		QBuffer buffer(&m_dataBuffer);
+		buffer.open(QIODevice::ReadOnly);
+		QDataStream stream(&buffer);
 		stream.startTransaction();
 
 		auto& request = m_pendingRequests.front();
@@ -195,6 +197,9 @@ void QNetClient::InterpretDataBytes()
 		// Transaction will fail if there's not enough data
 		if (!stream.commitTransaction())
 			return;
+
+		// only if we succeed, remove data from the incoming buffer
+		m_dataBuffer.remove(0, buffer.pos());
 
 		InvokeCallback(request);
 
