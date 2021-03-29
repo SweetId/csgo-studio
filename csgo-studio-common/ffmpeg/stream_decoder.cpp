@@ -32,22 +32,20 @@ bool StreamDecoder::Decode(const QByteArray& inBuffer, QByteArray& outBuffer)
 {
 	AVPacket* packet = av_packet_alloc();
 
-	const uint32_t size = inBuffer.size();
-	const uint8_t* data = (const uint8_t*)inBuffer.constData();
-
-	uint32_t offset = 0;
-	while (offset < size)
+	m_internalBuffer.append(inBuffer);
+	while (!m_internalBuffer.isEmpty())
 	{
-		int32_t ret = av_parser_parse2(m_parser, m_descriptor.m_privateDecodingContext, &packet->data, &packet->size, data + offset, (size - offset), AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+		int32_t ret = av_parser_parse2(m_parser, m_descriptor.m_privateDecodingContext, &packet->data, &packet->size, (const uint8_t*)m_internalBuffer.constData(), m_internalBuffer.size(), AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
 		if (ret < 0)
 		{
 			av_packet_free(&packet);
 			return false;
 		}
 
-		offset += ret;
 		if (!DecodeInternal(packet, outBuffer))
 			return false;
+
+		m_internalBuffer.remove(0, ret);
 	}
 
 	av_packet_free(&packet);
