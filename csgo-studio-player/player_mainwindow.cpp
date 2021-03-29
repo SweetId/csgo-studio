@@ -226,7 +226,7 @@ void MainWindow::OnMicrophoneSample(const char* data, qint64 len)
 	QByteArray outBuffer;
 	m_encoder->Encode(stereoSound, outBuffer);
 
-	if (!m_bMicrophoneMuted && m_connection.IsConnected() && PassNoiseGame(m_inputDevice->level()))
+	if (!m_bMicrophoneMuted && m_connection.IsConnected() && PassNoiseGate(m_inputDevice->level()))
 	{
 		QNetSoundwave header;
 		header.id = 0;
@@ -287,7 +287,7 @@ void MainWindow::SendIdentifier(const QString& nickname)
 	m_connection.Send(TRequest<QNetClientIdentifier>(header));
 }
 
-bool MainWindow::PassNoiseGame(float volumedB)
+bool MainWindow::PassNoiseGate(float volumedB)
 {
 	return volumedB >= 0.3;
 }

@@ -35,7 +35,7 @@ private slots:
 
 private:
     void SendIdentifier(const QString& nickname);
-    bool PassNoiseGame(float volumedB);
+    bool PassNoiseGate(float volumedB);
 
     void OnMicrophoneChanged(const class QAudioDeviceInfo& info);
 
