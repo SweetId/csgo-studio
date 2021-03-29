@@ -289,7 +289,7 @@ void MainWindow::SendIdentifier(const QString& nickname)
 
 bool MainWindow::PassNoiseGate(float volumedB)
 {
-	return volumedB >= 0.3;
+	return volumedB >= 0.1;
 }
 
 void MainWindow::OnMicrophoneChanged(const QAudioDeviceInfo& info)
