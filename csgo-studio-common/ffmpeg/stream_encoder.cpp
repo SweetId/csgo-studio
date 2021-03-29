@@ -2,8 +2,6 @@
 
 #include "private/ffmpeg.h"
 
-#include <QByteArray>
-
 StreamEncoder::StreamEncoder(const AudioSampleDescriptor& descriptor)
 	: m_descriptor(descriptor)
 	, m_frame(av_frame_alloc())
@@ -32,27 +30,33 @@ bool StreamEncoder::Initialize()
 
 bool StreamEncoder::Encode(const QByteArray& inBuffer, QByteArray& outBuffer)
 {
-	const uint32_t size = inBuffer.size();
-	const uint8_t* data = (const uint8_t*)inBuffer.constData();
-
-	uint32_t offset = 0;
-	while (offset < size)
+	m_internalBuffer.append(inBuffer);
+	while (!m_internalBuffer.isEmpty())
 	{
 		int32_t ret = av_frame_make_writable(m_frame);
 		if (ret < 0)
+		{
 			return false;
-
-		uint8_t* ptr = (uint8_t*)m_frame->data[0];
+		}
 
 		const uint32_t maxsize = m_frame->linesize[0];
-		const uint32_t sizeToCopy = std::min((size - offset), maxsize);
 
-		std::memcpy(ptr, data + offset, sizeToCopy);
+		// Not enough data in internal buffer, skip and wait for next data
+		if (m_internalBuffer.size() < maxsize)
+			break;
 
-		offset += sizeToCopy;
+
+		uint16_t* dst = (uint16_t*)m_frame->data[0];
+		uint16_t* src = (uint16_t*)m_internalBuffer.data();
+
+		std::memcpy(dst, src, maxsize);
 
 		if (!EncodeInternal(m_frame, outBuffer))
+		{
 			return false;
+		}
+
+		m_internalBuffer.remove(0, maxsize);
 	}
 	return true;
 }
