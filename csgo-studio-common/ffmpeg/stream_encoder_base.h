@@ -1,26 +1,26 @@
 #pragma once
 
 #include "common.h"
-#include "callback.h"
-
-#include "audio_sample_descriptor.h"
 
 #include <QByteArray>
 
-class CSGOSTUDIO_API StreamEncoder
+class CSGOSTUDIO_API StreamEncoderBase
 {
 public:
-	StreamEncoder(const AudioSampleDescriptor& descriptor);
-	~StreamEncoder();
+	StreamEncoderBase();
+	virtual ~StreamEncoderBase();
 
 	bool Encode(const class QByteArray& inBuffer, QByteArray& outBuffer);
 
-private:
+protected:
 	bool Initialize();
 	// Encode current frame in the packet
 	bool EncodeInternal(struct AVFrame* frame, QByteArray& outBuffer);
 
-	AudioSampleDescriptor m_descriptor;
+	virtual struct SampleDescriptorBase& GetDescriptor() = 0;
+	virtual bool OnInitialize() = 0;
+	virtual int32_t GetFrameSize() const = 0;
+	virtual void CopyBufferToFrame() = 0;
 
 	struct AVFrame* m_frame;
 
