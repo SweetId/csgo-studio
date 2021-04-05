@@ -29,3 +29,12 @@ enum class ESampleFormat : uint16_t
 
 	MAX
 };
+
+namespace
+{
+	template<typename TEnum>
+	inline typename std::underlying_type<TEnum>::type EnumCast(const TEnum e) { return std::underlying_type<TEnum>::type(e); }
+
+	template<typename TEnum>
+	inline typename TEnum EnumCast(const typename std::underlying_type<TEnum>::type v) { return TEnum(v); }
+}
