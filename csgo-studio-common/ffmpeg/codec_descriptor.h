@@ -17,6 +17,9 @@ public:
 	bool SetCodec(ECodec codec);
 	ECodec GetCodec() const { return m_codec; }
 
+	struct AVCodec* GetEncoder() { return m_privateEncoder; }
+	struct AVCodec* GetDecoder() { return m_privateDecoder; }
+
 	std::set<int32_t> SupportedEncodingSampleRates() const;
 	std::set<int32_t> SupportedEncodingChannels() const;
 	std::set<ESampleFormat> SupportedEncodingFormats() const;
@@ -33,8 +36,4 @@ private:
 	// and does not need to be freed manually
 	struct AVCodec* m_privateEncoder;
 	struct AVCodec* m_privateDecoder;
-
-	friend struct AudioSampleDescriptor;
-	friend class StreamEncoder;
-	friend class StreamDecoder;
 };
