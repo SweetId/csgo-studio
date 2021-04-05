@@ -46,12 +46,13 @@ private:
     class QCameraViewfinder* m_cameraWidget;
     class QCameraImageCapture* m_videoCapture;
 
-    class StreamEncoder* m_encoder;
+    class AudioStreamEncoder* m_audioEncoder;
+    class VideoStreamEncoder* m_videoEncoder;
 
     // For local debug playback
     class QAudioOutput* m_audioOutput;
     class QIODevice* m_audioDevice;
-    class StreamDecoder* m_decoder;
+    class AudioStreamDecoder* m_decoder;
 
     QNetClient m_connection;
 

@@ -2,7 +2,7 @@
 
 #include "multi_track.h"
 #include "multi_tracks_player.h"
-#include "ffmpeg/stream_decoder.h"
+#include "ffmpeg/audio_stream_decoder.h"
 
 #include <QAudioFormat>
 #include <QAudioOutput>
@@ -169,7 +169,7 @@ MainWindow::MainWindow()
 	OnSpeakersChanged(QAudioDeviceInfo::defaultOutputDevice());
 
 	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 44100, ESampleFormat::S16);
-	m_decoder = new StreamDecoder(descriptor);
+	m_decoder = new AudioStreamDecoder(descriptor);
 }
 
 MainWindow::~MainWindow()

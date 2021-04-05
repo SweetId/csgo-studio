@@ -3,8 +3,9 @@
 #include "audio_device.h"
 #include "qnet_data.h"
 #include "sound_bar.h"
-#include "ffmpeg/stream_decoder.h"
-#include "ffmpeg/stream_encoder.h"
+#include "ffmpeg/audio_stream_decoder.h"
+#include "ffmpeg/audio_stream_encoder.h"
+#include "ffmpeg/video_stream_encoder.h"
 
 #include <QAudioInput>
 #include <QAudioOutput>
@@ -27,10 +28,18 @@
 #include <fstream>
 
 MainWindow::MainWindow()
-	: m_camera(nullptr)
+	: m_microphone(nullptr)
+	, m_inputDevice(nullptr)
+	, m_camera(nullptr)
+	, m_cameraWidget(nullptr)
+	, m_videoCapture(nullptr)
+	, m_audioEncoder(nullptr)
+	, m_videoEncoder(nullptr)
+	, m_audioOutput(nullptr)
+	, m_audioDevice(nullptr)
+	, m_decoder(nullptr)
 	, m_bMicrophoneMuted(true)
 	, m_mindB(0.f)
-	, m_microphone(nullptr)
 {
 	QAudioFormat format;
 	format.setSampleRate(44100);
@@ -152,19 +161,22 @@ MainWindow::MainWindow()
 	m_cameraWidget->setFixedSize(640, 480);
 
 	QSoundBar* soundbar = new QSoundBar(this);
-	setCentralWidget(soundbar);
+	//setCentralWidget(soundbar);
 	connect(m_inputDevice, &AudioDevice::levelUpdated, soundbar, &QSoundBar::setLevel);
 
 
-	AudioSampleDescriptor descriptor(ECodec::Mp2, 2, 64000, 44100, ESampleFormat::S16);
-	m_encoder = new StreamEncoder(descriptor);
+	AudioSampleDescriptor audioDescriptor(ECodec::Mp2, 2, 64000, 44100, ESampleFormat::S16);
+	m_audioEncoder = new AudioStreamEncoder(audioDescriptor);
+
+	VideoSampleDescriptor videoDescriptor(ECodec::h264, 400000, 640, 480, 30, QVideoFrame::PixelFormat::Format_YUV420P);
+	m_videoEncoder = new VideoStreamEncoder(videoDescriptor);
 
 	// Local audio playback
 	QAudioDeviceInfo info = QAudioDeviceInfo::defaultOutputDevice();
 	m_audioOutput = new QAudioOutput(info, format, this);
 	m_audioDevice = m_audioOutput->start();
 
-	m_decoder = new StreamDecoder(descriptor);
+	m_decoder = new AudioStreamDecoder(audioDescriptor);
 }
 
 MainWindow::~MainWindow()
@@ -180,7 +192,18 @@ void MainWindow::OnCameraOn(const QString& camera)
 		{
 			m_camera = new QCamera(desc, this);
 			m_camera->setViewfinder(m_cameraWidget);
+			
+			QCameraViewfinderSettings vfSettings;
+			vfSettings.setResolution(640, 480);
+			vfSettings.setPixelFormat(QVideoFrame::PixelFormat::Format_YUYV);
+			m_camera->setViewfinderSettings(vfSettings);
 			m_camera->start();
+
+			auto viewfinderSettings = m_camera->supportedViewfinderSettings();
+			for (auto i : viewfinderSettings)
+			{
+				qDebug() << i.resolution() << i.pixelFormat() << i.maximumFrameRate();
+			}
 
 			m_videoCapture = new QCameraImageCapture(m_camera, this);
 			m_videoCapture->setCaptureDestination(QCameraImageCapture::CaptureDestination::CaptureToBuffer);
@@ -189,10 +212,11 @@ void MainWindow::OnCameraOn(const QString& camera)
 			auto res = m_videoCapture->supportedResolutions();
 			auto codecs = m_videoCapture->supportedImageCodecs();
 			auto formats = m_videoCapture->supportedBufferFormats();
-			//m_capture->setEncodingSettings(settings);
+			//m_videoCapture->setBufferFormat(QVideoFrame::PixelFormat::Format_YUV420P);
+			auto fmt = m_videoCapture->bufferFormat();
 			
-			m_videoCapture->capture();
 			connect(m_videoCapture, &QCameraImageCapture::imageAvailable, this, &MainWindow::OnCameraFrame);
+			m_videoCapture->capture();
 			break;
 		}
 	}
@@ -207,9 +231,13 @@ void MainWindow::OnCameraOff()
 
 void MainWindow::OnCameraFrame(int id, const QVideoFrame& frame)
 {
-	/*QImage image = frame.image().scaled(640, 480);
+	QImage image = frame.image().scaled(640, 480);
+
+	QByteArray im((const char*)image.bits(), image.sizeInBytes());
+	QByteArray outBuffer;
+	m_videoEncoder->Encode(im, outBuffer);
 	
-	if (m_connection.IsConnected())
+	/*if (m_connection.IsConnected())
 	{
 		QNetCameraFrame header;
 		header.id = 0;
@@ -224,7 +252,7 @@ void MainWindow::OnMicrophoneSample(const char* data, qint64 len)
 {
 	QByteArray stereoSound(data, len);
 	QByteArray outBuffer;
-	m_encoder->Encode(stereoSound, outBuffer);
+	m_audioEncoder->Encode(stereoSound, outBuffer);
 
 	if (!m_bMicrophoneMuted && m_connection.IsConnected() && PassNoiseGate(m_inputDevice->level()))
 	{
@@ -235,9 +263,12 @@ void MainWindow::OnMicrophoneSample(const char* data, qint64 len)
 		m_connection.Send(TRequestWithData<QNetSoundwave, QByteArray>(header, outBuffer));
 	}
 
-	/*QByteArray decoded;
-	m_decoder->Decode(outBuffer, decoded);
-	m_audioDevice->write(decoded);*/
+	if (nullptr != m_decoder)
+	{
+		QByteArray decoded;
+		m_decoder->Decode(outBuffer, decoded);
+		m_audioDevice->write(decoded);
+	}
 }
 
 void MainWindow::ConnectToServer(const QString& serverip, const QString& nickname)

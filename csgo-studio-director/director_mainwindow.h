@@ -42,7 +42,7 @@ private:
 
     class QAudioOutput* m_speakers;
     class QIODevice* m_audioDevice;
-    class StreamDecoder* m_decoder;
+    class AudioStreamDecoder* m_decoder;
 
     qint64 m_initialTimestamp;
 };
