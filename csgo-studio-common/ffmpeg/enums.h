@@ -2,14 +2,19 @@
 
 #include "common.h"
 
+#include <type_traits>
+
 enum class ECodec : uint32_t
 {
 	None,
 
 	// Audio Codecs
-	Mp2
+	Mp2,
 
 	// Video Codecs
+	h264,
+
+	MAX
 };
 
 enum class ESampleFormat : uint16_t
@@ -20,5 +25,7 @@ enum class ESampleFormat : uint16_t
 	S16,
 	S32,
 	Float,
-	Double
+	Double,
+
+	MAX
 };
